@@ -1,0 +1,46 @@
+// src/routes/AppRoutes.js
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Home from "../pages/landing/Home";
+import About from "../pages/landing/About";
+import Contact from "../pages/landing/Contact";
+import SignIn from "../pages/auth/SignIn";
+import SignUp from "../pages/auth/SignUp";
+import Role from "../pages/auth/Role";
+import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
+import ProtectedRoute from "./ProtectedRoute";
+import RedirectIfAuthenticated from "./RedirectIfAuthenticated";
+
+import userroutes from "../routes/User.routes";
+
+
+const AppRoutes = () => {
+  return (
+
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<RedirectIfAuthenticated><About /></RedirectIfAuthenticated>} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/login" element={<RedirectIfAuthenticated><SignIn /></RedirectIfAuthenticated>} />
+        <Route path="/register" element={<SignUp />} />
+        <Route path="/role" element={<Role />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+        {/* Dynamically render user routes */}
+        {userroutes.map(({ path, element }, index) => (
+          <Route
+            key={index}
+            path={path}
+            element={
+              <ProtectedRoute requiredRole="user">
+                {element}
+              </ProtectedRoute>
+            }
+          />
+        ))}
+      </Routes>
+
+  );
+};
+
+export default AppRoutes;
