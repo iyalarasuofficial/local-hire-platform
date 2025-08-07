@@ -3,19 +3,15 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDvsW7QPSwE9a7-STgLn58ZbCIa9fuif3E",
-  authDomain: "local-hire-b0d98.firebaseapp.com",
-  projectId: "local-hire-b0d98",
-  storageBucket: "local-hire-b0d98.appspot.com",
-  messagingSenderId: "315213450551",
-  appId: "1:315213450551:web:35c9a86de8e7d0698a1eb2",
-  measurementId: "G-QYLD7B05J0"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// Export only auth since you're not using Firestore
 export const auth = getAuth(app);
