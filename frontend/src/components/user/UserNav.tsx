@@ -40,7 +40,7 @@ const UserNav = () => {
   const navItems = [
     { name: 'Home', href: '/dashboard/user' },
     { name: 'Find Workers', href: '/dashboard/user/find-worker' },
-    { name: 'My Bookings', href: '/my-bookings' },
+    { name: 'My Bookings', href: '/dashboard/user/bookings' },
     { name: 'Contact', href: '/contact' }
   ];
 

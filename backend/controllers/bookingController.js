@@ -51,26 +51,43 @@ export const createBooking = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+export const cancelBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    console.log("cancel accepted");
 
+    // example logic
+    const booking = await Booking.findByIdAndUpdate(
+      bookingId,
+      { status: "cancelled" },
+      { new: true }
+    );
 
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
 
-// 📌 Get bookings made by a user
+    res.json({ message: "Booking cancelled successfully", booking });
+  } catch (error) {
+    console.error("Error cancelling booking:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 export const getUserBookings = async (req, res) => {
   try {
-    const { uid } = req.params;
+    const { uid } = req.params; // Firebase UID of the user
 
-    const user = await User.findOne({ uid });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    const bookings = await Booking.find({ userId: uid })
+      .populate("workerDetails", "name skills  phone charge  profilePic")
 
-    const bookings = await Booking.find({ userId: user._id })
-      .populate("workerId", "name skill charge")
-      .sort({ createdAt: -1 });
-
-    res.status(200).json(bookings);
+    res.status(200).json(bookings);x
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
+
 
 // 📌 Get bookings assigned to a worker
 export const getWorkerBookings = async (req, res) => {

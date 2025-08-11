@@ -1,6 +1,7 @@
 import express from "express";
 import {registerUser,getNearbyWorkers,rateWorker,updateUserProfile, getDefaultWorkers
 } from "../controllers/userController.js";
+import {addRating} from "../controllers/ratingController.js"
 import {verifyFirebaseToken} from "../middleware/firebaseAuth.js"
 
 import {getUserReviews} from "../controllers/ratingController.js"
@@ -17,7 +18,7 @@ router.get("/nearby-workers", verifyFirebaseToken,getNearbyWorkers);
 
 router.get("/random",verifyFirebaseToken,getDefaultWorkers);
 // 📌 Rate a worker
-router.post("/rate", rateWorker);
+router.post("/rate", addRating);
 
 router.get("/getreviews/:workerId", verifyFirebaseToken, getUserReviews);
 

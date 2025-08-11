@@ -7,7 +7,13 @@ const ApiRoutes = {
   NEARBY_WORKERS: { path: "/api/users/nearby-workers", authenticate: true },
   RANDOM_WORKERS:{path:"/api/users/random",authenticate:true},
   GETALL_REVIEWS:{path:"/api/users/getreviews",authenticate:true},
-  WORKER_BOOK:{path:"/api/bookings",authenticate:true}
+  WORKER_BOOK:{path:"/api/bookings",authenticate:true},
+
+  USER_BOOKING:{path:"/api/bookings/user",authenticate:true},
+
+  CANCEL_BOOKING:{path:"api/bookings/user",authenticate:true},
+
+  WRITE_REVIEW:{path:"api/users/rate",authenticate:true}
   
   // add more as needed
 };

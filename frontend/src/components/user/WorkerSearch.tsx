@@ -1,4 +1,5 @@
-import React, { useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import axios from 'axios';
 import {
   Search, Star, MapPin, Clock, Filter, X, Navigation, AlertCircle
@@ -7,8 +8,7 @@ import axiosInstance from '../../api/axiosInstance';
 import ApiRoutes from '../../api/apiRoutes';
 import toast from 'react-hot-toast';
 import { useNavigate } from "react-router-dom";
-
-
+import Booking from './Booking';
 
 interface Worker {
   uid: string;
@@ -25,25 +25,43 @@ interface Worker {
   distance?: number;
   distanceUnit?: string;
   distanceMiles?: number;
+  isAvailable?: boolean;
+  phone?: string;
+  email?: string;
+  role?: string;
 }
 
-const WorkerSearch = () => {
+interface WorkerData {
+  id: string;
+  name: string;
+  image: string;
+  category: string;
+  rate: string;
+  phone: string;
+  email: string;
+}
 
-  const navigate=useNavigate();
+const WorkerSearch: React.FC = () => {
+  const navigate = useNavigate();
+  
+  // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
   const [coordinates, setCoordinates] = useState<[number, number] | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
+  
+  // Loading and error states
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [locationError, setLocationError] = useState<string>('');
   const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
-    const [isBookingOpen, setIsBookingOpen] = useState(false);
-    const [selectedWorker, setSelectedWorker] = useState(null);
+  
+  // Booking modal state
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [selectedWorker, setSelectedWorker] = useState<WorkerData | null>(null);
 
   const categories = ['plumbing', 'electrical', 'cleaning', 'handyman', 'painting'];
-
 
   const fetchDefaultWorkers = async () => {
     try {
@@ -53,9 +71,11 @@ const WorkerSearch = () => {
         setWorkers(res.data.workers);
       } else {
         console.error("Unexpected response from RANDOM_WORKERS:", res.data);
+        setWorkers([]);
       }
     } catch (err) {
       console.error("Error fetching default workers:", err);
+      setWorkers([]);
     } finally {
       setIsSearching(false);
     }
@@ -71,7 +91,7 @@ const WorkerSearch = () => {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       fetchWorkers();
-    }, 300); // Debounce search
+    }, 300); 
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery, selectedCategories, coordinates]);
@@ -79,7 +99,7 @@ const WorkerSearch = () => {
   const detectUserLocation = async () => {
     if (!navigator.geolocation) {
       setLocationError('Geolocation is not supported by this browser');
-      toast.error("Please enable location")
+      toast.error("Please enable location");
       return;
     }
 
@@ -206,8 +226,8 @@ const WorkerSearch = () => {
         params.radius = 50; // Search within 50km radius
       }
 
-      // Use the appropriate endpoint based on whether we have location or not
-      const endpoint = coordinates ? ApiRoutes.NEARBY_WORKERS.path : ApiRoutes.NEARBY_WORKERS.path;
+      // Use the appropriate endpoint
+      const endpoint = ApiRoutes.NEARBY_WORKERS.path;
       const res = await axiosInstance.get(endpoint, { params });
       const data = res.data;
 
@@ -333,306 +353,328 @@ const WorkerSearch = () => {
     return (
       <div className="flex items-center gap-1 text-gray-500">
         <MapPin className="w-4 h-4" />
-        <span>{worker.distance} km ({worker.distanceMiles} miles) away</span>
+        <span>{worker.distance.toFixed(1)} km {worker.distanceMiles ? `(${worker.distanceMiles.toFixed(1)} miles)` : ''} away</span>
       </div>
     );
   };
-   const handleBookNow = () => {
-    if (worker) {
-      // Prepare worker data for booking component
-      const workerData = {
-        id: worker.uid,
-        name: worker.name,
-        image: worker.profilePic ,
-        category: worker.role,
-        rate: `₹${worker.charge}/hr`,
-        phone: worker.phone,
-        email: worker.email
-      };
-      
-      setSelectedWorker(workerData);
-      setIsBookingOpen(true);
-    }
+
+  const handleBookNow = (worker: Worker) => {
+    if (!worker) return;
+    
+    // Prepare worker data for booking component
+    const workerData: WorkerData = {
+      id: worker.uid,
+      name: worker.name,
+      image: worker.profilePic || '',
+      category: worker.role || 'Professional',
+      rate: `₹${worker.charge}/hr`,
+      phone: worker.phone || '',
+      email: worker.email || ''
+    };
+    
+    setSelectedWorker(workerData);
+    setIsBookingOpen(true);
   };
+
   const handleCloseBooking = () => {
     setIsBookingOpen(false);
     setSelectedWorker(null);
   };
-const handleViewProfile = (worker: Worker) => {
-  console.log("pressed..", worker); // see full worker details
-  navigate(`/dashboard/user/find-worker/workers/detail/${worker.uid}`);
-};
+
+  const handleViewProfile = (worker: Worker) => {
+    console.log("Viewing profile for worker:", worker);
+    navigate(`/dashboard/user/find-worker/workers/detail/${worker.uid}`);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      {/* Search Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Main Search Bar */}
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Skills Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Search for skills (e.g. plumber, electrician)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-green-300 focus:border-green-300 outline-none"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X size={18} />
-                </button>
-              )}
-            </div>
-
-            {/* Location Search */}
-            <div className="relative w-full lg:w-[350px]">
-              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder={isLoadingLocation ? "Detecting location..." : "Enter city or location (optional)"}
-                value={locationQuery}
-                onChange={handleLocationChange}
-                onKeyPress={handleLocationKeyPress}
-                disabled={isLoadingLocation}
-                className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-green-300 focus:border-green-300 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                title={coordinates ? `Coordinates: ${coordinates[1].toFixed(4)}, ${coordinates[0].toFixed(4)}` : 'Location is optional for searching'}
-              />
-              {isLoadingLocation && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-green-500 border-t-transparent"></div>
-                </div>
-              )}
-              {!isLoadingLocation && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1">
-                  {locationQuery && (
-                    <button
-                      onClick={clearLocationAndSearch}
-                      className="text-gray-400 hover:text-red-600 transition-colors"
-                      title="Clear location"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
+    <>
+      <div className="min-h-screen bg-gray-50 pb-12">
+        {/* Search Header */}
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {/* Main Search Bar */}
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Skills Search */}
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Search for skills (e.g. plumber, electrician)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-green-300 focus:border-green-300 outline-none"
+                />
+                {searchQuery && (
                   <button
-                    onClick={retryLocationDetection}
-                    className="text-gray-400 hover:text-green-600 transition-colors"
-                    title="Detect my location automatically"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    <Navigation size={18} />
+                    <X size={18} />
                   </button>
-                </div>
-              )}
-            </div>
-
-            {/* Search Button */}
-            <button
-              onClick={() => {
-                if (locationQuery.trim() && !coordinates) {
-                  geocodeLocation();
-                } else {
-                  fetchWorkers();
-                }
-              }}
-              disabled={isLoadingLocation || isSearching}
-              className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
-            >
-              <Filter size={18} /> 
-              {isLoadingLocation || isSearching ? 'Searching...' : 'Search'}
-            </button>
-          </div>
-
-          {/* Location Error/Info Message */}
-          {locationError && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <p className="text-blue-800">{locationError}</p>
-                <p className="text-blue-600 mt-1">Don't worry! You can still search by skills and categories without location.</p>
+                )}
               </div>
-            </div>
-          )}
 
-          {/* Category Filters */}
-          <div className="mt-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Filter by Category:</h3>
-            <div className="flex flex-wrap gap-3">
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => toggleCategory(category)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all capitalize ${
-                    selectedCategories.includes(category)
-                      ? 'bg-green-100 text-green-700 border-2 border-green-300'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
-                  }`}
-                >
-                  {category}
-                  {selectedCategories.includes(category) && (
-                    <X className="inline-block ml-2 w-3 h-3" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Results Section */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {coordinates ? 'Nearby Professionals' : 'Available Professionals'}
-            </h2>
-            <p className="text-gray-600">
-              Found {getFilteredWorkersCount()} professionals for {getSearchSummary()}
-              {!coordinates && (searchQuery || selectedCategories.length > 0) && (
-                <span className="text-green-600 ml-2">• Showing results from all locations</span>
-              )}
-            </p>
-          </div>
-        </div>
-
-        {/* Workers List */}
-        <div className="space-y-6">
-          {isSearching ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-2 border-green-500 border-t-transparent mx-auto mb-4"></div>
-              <p className="text-gray-600">Searching for professionals...</p>
-            </div>
-          ) : workers.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <Search className="w-8 h-8 text-gray-400" />
+              {/* Location Search */}
+              <div className="relative w-full lg:w-[350px]">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  placeholder={isLoadingLocation ? "Detecting location..." : "Enter city or location (optional)"}
+                  value={locationQuery}
+                  onChange={handleLocationChange}
+                  onKeyPress={handleLocationKeyPress}
+                  disabled={isLoadingLocation}
+                  className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-green-300 focus:border-green-300 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={coordinates ? `Coordinates: ${coordinates[1].toFixed(4)}, ${coordinates[0].toFixed(4)}` : 'Location is optional for searching'}
+                />
+                {isLoadingLocation && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-green-500 border-t-transparent"></div>
+                  </div>
+                )}
+                {!isLoadingLocation && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1">
+                    {locationQuery && (
+                      <button
+                        onClick={clearLocationAndSearch}
+                        className="text-gray-400 hover:text-red-600 transition-colors"
+                        title="Clear location"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                    <button
+                      onClick={retryLocationDetection}
+                      className="text-gray-400 hover:text-green-600 transition-colors"
+                      title="Detect my location automatically"
+                    >
+                      <Navigation size={18} />
+                    </button>
+                  </div>
+                )}
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No professionals found</h3>
-              <p className="text-gray-600 mb-4">
-                Try adjusting your search terms or selecting different categories.
-              </p>
+
+              {/* Search Button */}
               <button
                 onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategories([]);
-                  fetchDefaultWorkers();
+                  if (locationQuery.trim() && !coordinates) {
+                    geocodeLocation();
+                  } else {
+                    fetchWorkers();
+                  }
                 }}
-                className="px-4 py-2 text-green-600 hover:text-green-700 font-medium"
+                disabled={isLoadingLocation || isSearching}
+                className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
               >
-                Clear all filters
+                <Filter size={18} /> 
+                {isLoadingLocation || isSearching ? 'Searching...' : 'Search'}
               </button>
             </div>
-          ) : (
-            workers.map((worker) => (
-              <div
-                key={worker.uid}
-                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-green-200 transition-all"
-              >
-                <div className="flex flex-col lg:flex-row gap-6">
-                  {/* Profile Picture */}
-                  <div className="flex-shrink-0 relative">
-                    <img
-                      src={worker.profilePic || '/api/placeholder/96/96'}
-                      alt={worker.name}
-                      className="w-20 h-20 lg:w-24 lg:h-24 rounded-2xl object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/api/placeholder/96/96';
-                      }}
-                    />
-                    {worker.verified && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
+
+            {/* Location Error/Info Message */}
+            {locationError && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="text-blue-800">{locationError}</p>
+                  <p className="text-blue-600 mt-1">Don't worry! You can still search by skills and categories without location.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Category Filters */}
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Filter by Category:</h3>
+              <div className="flex flex-wrap gap-3">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => toggleCategory(category)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all capitalize focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                      selectedCategories.includes(category)
+                        ? 'bg-green-100 text-green-700 border-2 border-green-300 focus:ring-green-500'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 focus:ring-gray-500'
+                    }`}
+                  >
+                    {category}
+                    {selectedCategories.includes(category) && (
+                      <X className="inline-block ml-2 w-3 h-3" />
                     )}
-                  </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
 
-                  {/* Worker Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col lg:flex-row justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold text-gray-900 mb-1">{worker.name}</h3>
-                        <p className="text-gray-600 mb-2">{worker.bio || 'Experienced professional'}</p>
-                        
-                        {/* Skills/Categories */}
-                        {worker.skills && worker.skills.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mb-3">
-                            {worker.skills.slice(0, 3).map((skill, index) => (
-                              <span
-                                key={index}
-                                className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full capitalize"
-                              >
-                                {skill}
-                              </span>
-                            ))}
-                            {worker.skills.length > 3 && (
-                              <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                +{worker.skills.length - 3} more
-                              </span>
-                            )}
-                          </div>
-                        )}
+        {/* Results Section */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                {coordinates ? 'Nearby Professionals' : 'Available Professionals'}
+              </h2>
+              <p className="text-gray-600">
+                Found {getFilteredWorkersCount()} professionals for {getSearchSummary()}
+                {!coordinates && (searchQuery || selectedCategories.length > 0) && (
+                  <span className="text-green-600 ml-2">• Showing results from all locations</span>
+                )}
+              </p>
+            </div>
+          </div>
 
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm mb-3">
-                          <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                            <span className="text-gray-900 font-medium">{worker.rating || '4.5'}</span>
-                            <span className="text-gray-500"> • {worker.reviewCount || 0} reviews</span>
-                          </div>
+          {/* Workers List */}
+          <div className="space-y-6">
+            {isSearching ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-2 border-green-500 border-t-transparent mx-auto mb-4"></div>
+                <p className="text-gray-600">Searching for professionals...</p>
+              </div>
+            ) : workers.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                  <Search className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No professionals found</h3>
+                <p className="text-gray-600 mb-4">
+                  Try adjusting your search terms or selecting different categories.
+                </p>
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCategories([]);
+                    fetchDefaultWorkers();
+                  }}
+                  className="px-4 py-2 text-green-600 hover:text-green-700 font-medium focus:outline-none focus:underline"
+                >
+                  Clear all filters
+                </button>
+              </div>
+            ) : (
+              workers.map((worker) => (
+                <motion.div
+                  key={worker.uid}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-green-200 transition-all"
+                >
+                  <div className="flex flex-col lg:flex-row gap-6">
+                    {/* Profile Picture */}
+                    <div className="flex-shrink-0 relative">
+                      <img
+                        src={worker.profilePic || '/api/placeholder/96/96'}
+                        alt={`${worker.name}'s profile`}
+                        className="w-20 h-20 lg:w-24 lg:h-24 rounded-2xl object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/api/placeholder/96/96';
+                        }}
+                      />
+                      {worker.verified && (
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Worker Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col lg:flex-row justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-xl font-semibold text-gray-900 mb-1 truncate">{worker.name}</h3>
+                          <p className="text-gray-600 mb-2 line-clamp-2">{worker.bio || 'Experienced professional'}</p>
                           
-                          {/* Distance Display */}
-                          {worker.distance && formatDistance(worker)}
-                          
-                          {/* Address (only show if no distance available) */}
-                          {!worker.distance && worker.address && (
-                            <div className="flex items-center gap-1 text-gray-500">
-                              <MapPin className="w-4 h-4" />
-                              <span>{worker.address}</span>
+                          {/* Skills/Categories */}
+                          {worker.skills && worker.skills.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {worker.skills.slice(0, 3).map((skill, index) => (
+                                <span
+                                  key={`${worker.uid}-skill-${index}`}
+                                  className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full capitalize"
+                                >
+                                  {skill}
+                                </span>
+                              ))}
+                              {worker.skills.length > 3 && (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                                  +{worker.skills.length - 3} more
+                                </span>
+                              )}
                             </div>
                           )}
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          <span className="text-lg font-semibold text-green-600">₹{worker.charge}/hr</span>
-                        </div>
-                      </div>
 
-                      {/* Action Buttons */}
-                      <div className="flex flex-col sm:flex-row lg:flex-col gap-3">
-                    
-   <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleBookNow}
-                      disabled={!worker.isAvailable}
-                      className={`px-6 py-3 rounded-xl font-semibold transition-colors shadow-lg ${
-                        worker.isAvailable
-                          ? 'bg-green-500 text-white hover:bg-green-600 cursor-pointer'
-                          : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                      }`}
-                    >
-                      {worker.isAvailable ? 'Book Now' : 'Unavailable'}
-                    </motion.button>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm mb-3">
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                              <span className="text-gray-900 font-medium">{worker.rating?.toFixed(1) || '4.5'}</span>
+                              <span className="text-gray-500"> • {worker.reviewCount || 0} reviews</span>
+                            </div>
+                            
+                            {/* Distance Display */}
+                            {worker.distance && formatDistance(worker)}
+                            
+                            {/* Address (only show if no distance available) */}
+                            {!worker.distance && worker.address && (
+                              <div className="flex items-center gap-1 text-gray-500 min-w-0">
+                                <MapPin className="w-4 h-4 flex-shrink-0" />
+                                <span className="truncate">{worker.address}</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-gray-400" />
+                            <span className="text-lg font-semibold text-green-600">₹{worker.charge}/hr</span>
+                          </div>
+                        </div>
 
-                        <button className="px-6 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50 font-medium transition-colors"onClick={() => handleViewProfile(worker)}>
-                          View Profile
-                        </button>
+                        {/* Action Buttons */}
+                        <div className="flex flex-col sm:flex-row lg:flex-col gap-3 flex-shrink-0">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => handleBookNow(worker)}
+                            disabled={worker.isAvailable === false}
+                            className={`px-6 py-2 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                              worker.isAvailable !== false
+                                ? 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
+                                : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                            }`}
+                          >
+                            {worker.isAvailable !== false ? 'Book Now' : 'Unavailable'}
+                          </motion.button>
+
+                          <motion.button 
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="px-6 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50 font-medium transition-all focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                            onClick={() => handleViewProfile(worker)}
+                          >
+                            View Profile
+                          </motion.button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))
-          )}
+                </motion.div>
+              ))
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Booking Modal */}
+      {selectedWorker && (
+        <Booking 
+          isOpen={isBookingOpen}
+          onClose={handleCloseBooking}
+          workerData={selectedWorker}
+        />
+      )}
+    </>
   );
 };
 

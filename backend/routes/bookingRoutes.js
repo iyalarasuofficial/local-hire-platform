@@ -1,11 +1,14 @@
 import express from "express";
-import {createBooking,getWorkerBookings,updateBookingStatus,updatePaymentStatus,getBookingById,getAllBookings,
+import {createBooking,getWorkerBookings,updateBookingStatus,updatePaymentStatus,getBookingById,getAllBookings, getUserBookings, cancelBooking,
 } from "../controllers/bookingController.js";
 
 const router = express.Router();
 
 // 📌 Create new booking
 router.post("/", createBooking);
+router.get("/user/:uid",getUserBookings);
+router.get("/worker/:uid", getWorkerBookings);
+router.patch("/user/:bookingId",cancelBooking);
 
 // 📌 Get bookings by worker UID
 router.get("/worker/:uid", getWorkerBookings);

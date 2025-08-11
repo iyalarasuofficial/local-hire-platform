@@ -32,7 +32,7 @@ const updateWorkerRatingStats = async (workerId) => {
 export const addRating = async (req, res) => {
   try {
     const { bookingId, userId, workerId, rating, feedback } = req.body;
-
+console.log("fasfasdf",feedback);
     const newRating = await Rating.create({
       bookingId,
       userId,
@@ -40,6 +40,7 @@ export const addRating = async (req, res) => {
       rating,
       feedback
     });
+    
 
     await updateWorkerRatingStats(workerId); // ⬅️ Important step
 
