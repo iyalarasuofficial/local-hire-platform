@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, User, LogOut, Menu, X } from 'lucide-react';
+import { User, LogOut } from 'lucide-react';
 import Logo from '../common/Logo';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../store/store';
+import defaultprofile from "../../assets/image.png"
+import { useDispatch } from 'react-redux';
+import { getAuth, signOut } from 'firebase/auth';
+import { logoutUser } from '../../store/authSlice';
 
 const UserNav = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -10,14 +16,9 @@ const UserNav = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const location = useLocation();
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const userData = {
-    name: 'John Doe',
-    email: 'john@example.com',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face',
-    role: 'User',
-    notifications: 3,
-  };
+  const dispatch = useDispatch();
+  const userData = useSelector((state: RootState) => state.auth);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -41,127 +42,74 @@ const UserNav = () => {
     { name: 'Home', href: '/dashboard/user' },
     { name: 'Find Workers', href: '/dashboard/user/find-worker' },
     { name: 'My Bookings', href: '/dashboard/user/bookings' },
-    { name: 'Contact', href: '/contact' }
+    { name: 'Contact', href: '/dashboard/user/contact' }
   ];
 
-  const handleLogout = () => {
-    // Add logout logic here
-    console.log('Logging out...');
-    setIsDropdownOpen(false);
+  const handleLogout = async () => {
+    try {
+      const auth = getAuth();
+      await signOut(auth);
+      dispatch(logoutUser());
+      setIsDropdownOpen(false);
+      navigate('/');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   return (
     <>
-      {/* Navbar with same structure as LandNav */}
-      <motion.nav 
+      {/* Navbar without initial animation */}
+      <nav 
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled 
-            ? 'bg-white/95 backdrop-blur-md shadow-lg h-16' 
-            : 'bg-white shadow-md h-20'
-        }`} 
-        initial={{ y: -100 }} 
-        animate={{ y: 0 }} 
-        transition={{ duration: 0.8, ease: "easeOut" }}
+            ? 'bg-white/95 backdrop-blur-md shadow-lg py-3' 
+            : 'bg-white shadow-md py-2'
+        }`}
       >
-        <div className="w-full px-4 sm:px-6 lg:px-8 h-full">
-          <div className="flex items-center justify-between h-full ">
+        <div className="w-full px-6 lg:px-8">
+          <div className="flex items-center justify-between">
             {/* Logo */}
-            <motion.div 
-              className="flex-shrink-0"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2, duration: 0.6 }}
-            >
+            <div className="flex-shrink-0">
               <Logo />
-            </motion.div>
+            </div>
 
             {/* Desktop Nav - Centered */}
-            <motion.div 
-              className="hidden md:flex absolute left-1/2 transform -translate-x-1/2"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.6 }}
-            >
+            <div className="hidden md:flex absolute left-1/2 transform -translate-x-1/2">
               <ul className="flex gap-8 text-gray-700 font-medium">
                 {navItems.map((item, index) => (
-                  <motion.li 
-                    key={index} 
-                    className="relative group" 
-                    initial={{ opacity: 0, y: -20 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    transition={{ delay: 0.3 + index * 0.1, duration: 0.5 }}
-                  >
+                  <li key={index} className="relative group">
                     <Link
                       to={item.href}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors duration-300 relative ${
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors duration-300 ${
                         location.pathname === item.href 
                           ? 'text-green-600' 
                           : 'hover:text-green-600'
                       }`}
                     >
-                      <motion.span
-                        whileHover={{ scale: 1.05, y: -2 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        {item.name}
-                      </motion.span>
-                      <motion.div 
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 rounded-full" 
-                        initial={{ scaleX: 0 }} 
-                        whileHover={{ scaleX: 1 }} 
-                        animate={{ scaleX: location.pathname === item.href ? 1 : 0 }}
-                        transition={{ duration: 0.3 }} 
-                      />
+                      <span>{item.name}</span>
                     </Link>
-                    <motion.div 
-                      className="absolute inset-0 bg-green-50 rounded-lg -z-10" 
-                      initial={{ opacity: 0, scale: 0.8 }} 
-                      whileHover={{ opacity: 1, scale: 1 }} 
-                      transition={{ duration: 0.3 }} 
-                    />
-                  </motion.li>
+                  </li>
                 ))}
               </ul>
-            </motion.div>
+            </div>
 
             {/* Right Section - User Controls */}
-            <motion.div 
+            <div 
               className="hidden md:flex items-center gap-4 flex-shrink-0" 
               ref={dropdownRef}
-              initial={{ opacity: 0, x: 20 }} 
-              animate={{ opacity: 1, x: 0 }} 
-              transition={{ delay: 0.4, duration: 0.6 }}
             >
-              {/* Notification Bell */}
-              <motion.div 
-                className="relative cursor-pointer"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Bell className="w-6 h-6 text-gray-600 hover:text-green-600 transition-colors" />
-                {userData.notifications > 0 && (
-                  <motion.span 
-                    className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  >
-                    {userData.notifications > 9 ? '9+' : userData.notifications}
-                  </motion.span>
-                )}
-              </motion.div>
-
               {/* Profile Section */}
               <motion.div
-                className="cursor-pointer flex items-center gap-2"
+                className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-green-50 transition-all duration-300"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <img 
-                  src={userData.avatar} 
-                  className="w-8 h-8 rounded-full border-2 border-gray-200" 
-                  alt="avatar" 
+                <img
+                  src={userData?.profilePic || defaultprofile}
+                  className="w-8 h-8 rounded-full border-2 border-gray-200"
+                  alt="avatar"
                 />
                 <span className="hidden lg:inline-block font-medium text-gray-700">
                   {userData.name}
@@ -183,7 +131,7 @@ const UserNav = () => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute right-0 top-12 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50"
+                    className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50"
                   >
                     <div className="px-4 py-3 border-b border-gray-100">
                       <p className="text-sm font-medium text-gray-900">{userData.name}</p>
@@ -192,7 +140,7 @@ const UserNav = () => {
                     
                     <div className="py-1">
                       <Link 
-                        to="/profile" 
+                        to="/user/profile" 
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setIsDropdownOpen(false)}
                       >
@@ -220,22 +168,15 @@ const UserNav = () => {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </motion.div>
+            </div>
 
             {/* Mobile Menu Button */}
-            <motion.div 
-              className="md:hidden flex items-center gap-3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4, duration: 0.6 }}
-            >
+            <div className="md:hidden flex items-center gap-3">
               {/* Mobile Avatar */}
-              <motion.img
-                src={userData.avatar}
-                alt="avatar"
+              <img
+                src={userData?.profilePic || defaultprofile}
                 className="w-8 h-8 rounded-full border-2 border-gray-200"
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                alt="avatar"
               />
 
               {/* Mobile Menu Toggle */}
@@ -267,10 +208,10 @@ const UserNav = () => {
                   transition={{ duration: 0.3 }} 
                 />
               </motion.button>
-            </motion.div>
+            </div>
           </div>
         </div>
-      </motion.nav>
+      </nav>
 
       {/* Mobile Navigation */}
       <AnimatePresence>
@@ -287,7 +228,7 @@ const UserNav = () => {
               onClick={() => setIsMobileMenuOpen(false)} 
             />
             <motion.div 
-              className={`absolute ${isScrolled ? 'top-16' : 'top-20'} left-4 right-4 bg-white rounded-2xl shadow-2xl overflow-hidden`}
+              className="absolute top-20 left-4 right-4 bg-white rounded-2xl shadow-2xl overflow-hidden"
               initial={{ opacity: 0, scale: 0.95, y: -20 }} 
               animate={{ opacity: 1, scale: 1, y: 0 }} 
               exit={{ opacity: 0, scale: 0.95, y: -20 }} 
@@ -297,12 +238,7 @@ const UserNav = () => {
                 {/* Navigation Items */}
                 <ul className="space-y-4 mb-6">
                   {navItems.map((item, index) => (
-                    <motion.li 
-                      key={index} 
-                      initial={{ opacity: 0, x: -20 }} 
-                      animate={{ opacity: 1, x: 0 }} 
-                      transition={{ delay: index * 0.1, duration: 0.5 }}
-                    >
+                    <li key={index}>
                       <Link
                         to={item.href}
                         onClick={() => setIsMobileMenuOpen(false)}
@@ -312,14 +248,9 @@ const UserNav = () => {
                             : 'hover:bg-green-50 hover:text-green-600'
                         }`}
                       >
-                        <motion.span
-                          whileHover={{ scale: 1.02, x: 5 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          {item.name}
-                        </motion.span>
+                        <span>{item.name}</span>
                       </Link>
-                    </motion.li>
+                    </li>
                   ))}
                 </ul>
 
@@ -332,7 +263,7 @@ const UserNav = () => {
                     whileTap={{ scale: 0.98 }}
                   >
                     <img 
-                      src={userData.avatar} 
+                      src={userData?.profilePic || defaultprofile} 
                       className="w-10 h-10 rounded-full border-2 border-gray-200" 
                       alt="avatar" 
                     />
@@ -360,7 +291,7 @@ const UserNav = () => {
                         transition={{ duration: 0.3 }}
                       >
                         <Link 
-                          to="/profile" 
+                          to="/user/profile" 
                           className="flex items-center gap-2 p-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
                           onClick={() => { 
                             setIsDropdownOpen(false); 
@@ -400,8 +331,7 @@ const UserNav = () => {
         )}
       </AnimatePresence>
 
-      {/* Spacer to push content below navbar */}
-      <div className={`transition-all duration-300 ${isScrolled ? 'h-16' : 'h-20'}`} />
+      <div className="h-16 md:h-16"></div>
     </>
   );
 };

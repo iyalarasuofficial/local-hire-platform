@@ -23,11 +23,12 @@ const workerSchema = new mongoose.Schema({
     coordinates: { type: [Number], default: [0, 0] },
   },
   address: { type: String },
-   averageRating: { type: Number, default: 0 },
+  averageRating: { type: Number, default: 0 },
   totalRatings: { type: Number, default: 0 },
 }, { timestamps: true });
 
 workerSchema.index({ location: '2dsphere' });
 workerSchema.index({ skills: 1 }); // Index for efficient skill-based queries
+workerSchema.index({ uid: 1 });
 
 export default mongoose.model("Worker", workerSchema);

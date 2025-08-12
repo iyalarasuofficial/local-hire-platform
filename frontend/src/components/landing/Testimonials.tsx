@@ -56,7 +56,7 @@ const Testimonials = () => {
    <section className="bg-gray-50 py-5 px-6 overflow-hidden" id="testimonials">
 
                         <motion.div
-                                        className="text-center mb-16"
+                                        className="text-center mb-8"
                                         initial={{ opacity: 0, y: -40 }}
                                         whileInView={{ opacity: 1, y: 0 }}
                                         viewport={{ once: true }}

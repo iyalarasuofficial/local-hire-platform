@@ -10,28 +10,68 @@ import toast from 'react-hot-toast';
 import { useNavigate } from "react-router-dom";
 import Booking from './Booking';
 
-interface Worker {
-  uid: string;
-  name: string;
-  bio?: string;
-  profilePic: string;
-  verified?: boolean;
-  rating?: number;
-  reviewCount?: number;
-  address?: string;
-  charge: number;
-  skills: string[];
-  coordinates?: [number, number];
-  distance?: number;
-  distanceUnit?: string;
-  distanceMiles?: number;
-  isAvailable?: boolean;
-  phone?: string;
-  email?: string;
-  role?: string;
+// interfaces/Worker.ts
+export interface WorkerLocation {
+  type: 'Point';
+  coordinates: [number, number]; // [longitude, latitude]
 }
 
-interface WorkerData {
+export interface Worker {
+  _id: string;
+  uid: string;
+  name: string;
+  email: string;
+  phone: string;
+  bio?: string;
+  profilePic?: string;
+  skills: string[];
+  role: 'worker';
+  experience?: number;
+  charge: number;
+  isAvailable: boolean;
+  isBlocked: boolean;
+  maxDistance: number;
+  location: WorkerLocation;
+  address?: string;
+  averageRating: number;
+  totalRatings: number;
+  createdAt: string;
+  updatedAt: string;
+  
+  // Virtual fields (computed on backend)
+  verified?: boolean;
+  formattedCharge?: string;
+  
+  // Populated when doing nearby search
+  distance?: number;
+  distanceMiles?: number;
+  distanceUnit?: string;
+}
+
+export interface WorkerSearchParams {
+  search?: string;
+  categories?: string;
+  lat?: number;
+  lng?: number;
+  radius?: number;
+  minRating?: number;
+  maxCharge?: number;
+  page?: number;
+  limit?: number;
+}
+
+export interface WorkerSearchResponse {
+  success: boolean;
+  workers: Worker[];
+  total: number;
+  page: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+// For booking modal - simplified interface
+export interface BookingWorkerData {
   id: string;
   name: string;
   image: string;
@@ -609,8 +649,8 @@ const WorkerSearch: React.FC = () => {
                           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm mb-3">
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                              <span className="text-gray-900 font-medium">{worker.rating?.toFixed(1) || '4.5'}</span>
-                              <span className="text-gray-500"> • {worker.reviewCount || 0} reviews</span>
+                              <span className="text-gray-900 font-medium">{worker.averageRating?.toFixed(1) || '4.5'}</span>
+                              <span className="text-gray-500"> • {worker.totalRatings || 0} reviews</span>
                             </div>
                             
                             {/* Distance Display */}

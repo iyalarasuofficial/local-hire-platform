@@ -5,13 +5,16 @@ import { motion } from 'framer-motion';
 import Logo from '../common/Logo';
 import axiosInstance from '../../api/axiosInstance';
 import ApiRoutes from '../../api/apiRoutes';
+import { setUser } from '../../store/authSlice'; 
+import { useDispatch } from 'react-redux';
 
 const RoleSelection: React.FC = () => {
   const navigate = useNavigate();
-
+  const dispatch = useDispatch();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  
 
   // Get temp user data from localStorage
   const userData = JSON.parse(localStorage.getItem('tempUser') || 'null');
@@ -61,6 +64,17 @@ const RoleSelection: React.FC = () => {
           coordinates: [coords.lng, coords.lat], // GeoJSON format: [longitude, latitude]
         },
       });
+
+      dispatch(
+        setUser({
+          uid: userData.uid,
+          email: userData.email || '',
+          name: userData.name || '',
+          phone: userData.phone || '',
+          profilePic: '', 
+          role,
+        })
+      );
 
       toast.success('Registration completed!');
       localStorage.removeItem('tempUser');

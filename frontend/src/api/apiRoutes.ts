@@ -13,9 +13,11 @@ const ApiRoutes = {
 
   CANCEL_BOOKING:{path:"api/bookings/user",authenticate:true},
 
-  WRITE_REVIEW:{path:"api/users/rate",authenticate:true}
-  
-  // add more as needed
+  WRITE_REVIEW:{path:"api/users/rate",authenticate:true},
+
+  GET_USER_PROFILE:{path:"api/users",authenticate:true},
+
+  UPDATE_USER_PROFILE:{path:"api/users/edit-profile",authenticate:true},
 };
 
 export default ApiRoutes;

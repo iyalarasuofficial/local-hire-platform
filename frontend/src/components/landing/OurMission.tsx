@@ -7,15 +7,40 @@ const OurMission = () => {
   return (
     <section className="py-16 bg-gray-50">
       <div className="max-w-6xl mx-auto px-4">
-        <motion.h2
-          className="text-4xl font-bold text-center text-green-600 mb-12"
-          initial={{ opacity: 0, y: -30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          Our Mission
-        </motion.h2>
+        <motion.div
+                    className="text-center mb-16"
+                    initial={{ opacity: 0, y: -40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                >
+                    <motion.h1
+                        className="text-2xl md:text-3xl font-bold text-gray-800 mb-4"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                    >
+                        Our{' '}
+                        <span className="relative">
+                            <span className="text-green-500">Mission</span>
+                            <motion.div
+                                className="absolute -bottom-1 left-0 right-0 h-1 bg-green-500/30 rounded-full"
+                                initial={{ scaleX: 0 }}
+                                whileInView={{ scaleX: 1 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: 0.8, duration: 0.6 }}
+                            />
+                        </span>
+                    </motion.h1>
+                    <motion.div
+                        className="w-20 h-1 bg-gradient-to-r from-green-500 to-blue-500 mx-auto rounded-full"
+                        initial={{ scaleX: 0 }}
+                        whileInView={{ scaleX: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: 1, duration: 0.8 }}
+                    />
+                </motion.div>
 
         <div className="grid md:grid-cols-3 gap-10">
           {/* Card 1 */}

@@ -24,7 +24,6 @@ const Login = () => {
 const redirectBasedOnMongoRole = async (uid: string) => {
   try {
     const res = await axiosInstance.get(`${ApiRoutes.LOGIN.path}/${uid}`);
-
     if (res.data.exists) {
       const role = res.data.role;
       const user = auth.currentUser;
@@ -33,13 +32,23 @@ const redirectBasedOnMongoRole = async (uid: string) => {
         toast.error('No authenticated user');
         return;
       }
+      let name = user.displayName || '';
+      let profilePic = user.photoURL || '';
 
-      // ✅ Dispatch to Redux
+      // If user role, fetch extra profile info from backend
+      if (role === "user") {
+        const redData = await axiosInstance.get(`${ApiRoutes.GET_USER_PROFILE.path}/${uid}`);
+        name = redData.data.name || name;
+        profilePic = redData.data.profilePic || profilePic;
+      }
+
+  
       dispatch(
         setUser({
           uid: user.uid,
           email: user.email || '',
-          name: user.displayName || '',
+          name,
+          profilePic,
           role,
         })
       );

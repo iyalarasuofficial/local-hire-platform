@@ -1,6 +1,7 @@
 import express from 'express';
 import User from '../models/User.js';
 import Worker from '../models/Worker.js'
+import Admin from "../../backend/models/Admin.js"
 
 const router = express.Router();
 
@@ -16,10 +17,10 @@ router.get('/check/:uid', async (req, res) => {
     if (worker) {
       return res.json({ exists: true, role: 'worker' });
     }
-    const admin = await Admin.findOne({ uid });
-    if (Admin) {
-      return res.json({ exists: true, role: 'admin' });
-    }
+    // const admin = await Admin.findOne({ uid });
+    // if (Admin) {
+    //   return res.json({ exists: true, role: 'admin' });
+    // }
 
     res.json({ exists: false, role: null });
   } catch (error) {

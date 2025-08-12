@@ -1,6 +1,6 @@
 import User from "../models/User.js";
 import Worker from "../models/Worker.js";
-import Rating from "../models/Rating.js";
+import admin from "../config/firebase.js";
 
 
 export const registerUser = async (req, res) => {
@@ -17,11 +17,34 @@ export const registerUser = async (req, res) => {
       phone,
       location
     });
+  
 
     res.status(201).json(newUser);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+export const getUser = async (req, res) => {
+  try {
+    const { uid } = req.params; // Get uid from route params
+
+    if (!uid) {
+      return res.status(400).json({ message: "UID is required" });
+    }
+
+    const user = await User.findOne({ uid }).select("-__v");
+  
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 export const getDefaultWorkers = async (req, res) => {
@@ -332,57 +355,57 @@ export const getAllWorkers = async (req, res) => {
     });
   }
 };
-export const rateWorker = async (req, res) => {
-  try {
-    const { uid, workerId, bookingId, rating, feedback } = req.body;
 
-    const user = await User.findOne({ uid });
-    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const existing = await Rating.findOne({ bookingId });
-    if (existing) return res.status(400).json({ message: "Already rated" });
-
-    const newRating = await Rating.create({
-      bookingId,
-      userId: user._id,
-      workerId,
-      rating,
-      feedback,
-    });
-
-    res.status(201).json({ message: "Rating submitted", newRating });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-};
 
 export const updateUserProfile = async (req, res) => {
   try {
     const { uid } = req.params;
-    const { name, phone, coordinates, profilePic } = req.body;
+    const { name, email, phone, address, profilePic } = req.body;
 
-    const user = await User.findOneAndUpdate(
-      { uid },
-      {
-        ...(name && { name }),
-        ...(phone && { phone }),
-        ...(coordinates && {
-          location: {
-            type: "Point",
-            coordinates,
-          },
-        }),
-        ...(profilePic && { profilePic }),
-      },
-      { new: true }
-    );
+    // Step 1: Update Firebase Auth email (only if changed)
+    if (email) {
+      try {
+        await admin.auth().updateUser(uid, { email });
+      } catch (firebaseErr) {
+        console.error("Firebase email update failed:", firebaseErr);
+        return res.status(400).json({
+          message: "Failed to update Firebase email",
+          error: firebaseErr.message,
+        });
+      }
+    }
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    // Step 2: Prepare update object for MongoDB
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (profilePic !== undefined) updateData.profilePic = profilePic;
+    if (address !== undefined) updateData.address = address;
+    if (email !== undefined) updateData.email = email;
 
-    res.status(200).json({ message: "Profile updated", user });
+    // Step 3: Update MongoDB
+    const user = await User.findOneAndUpdate({ uid }, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Step 4: Send updated profile
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      user,
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error("Update profile error:", err);
+    return res.status(500).json({
+      message: "Internal Server Error",
+      error: err.message,
+    });
   }
 };
+

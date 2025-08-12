@@ -4,29 +4,43 @@ import mongoose from 'mongoose';
 
 // Helper to update worker's average rating and total ratings
 const updateWorkerRatingStats = async (workerId) => {
-  const stats = await Rating.aggregate([
-    { $match: { workerId: new mongoose.Types.ObjectId(workerId) } },
-    {
-      $group: {
-        _id: '$workerId',
-        averageRating: { $avg: '$rating' },
-        totalRatings: { $sum: 1 }
+  try {
+    const stats = await Rating.aggregate([
+      { $match: { workerId: workerId } }, // workerId is String, not ObjectId
+      {
+        $group: {
+          _id: '$workerId',
+          averageRating: { $avg: '$rating' },
+          totalRatings: { $sum: 1 }
+        }
       }
-    }
-  ]);
+    ]);
 
-  if (stats.length > 0) {
-    await Worker.findByIdAndUpdate(workerId, {
-      averageRating: stats[0].averageRating,
-      totalRatings: stats[0].totalRatings
-    });
-  } else {
-    await Worker.findByIdAndUpdate(workerId, {
-      averageRating: 0,
-      totalRatings: 0
-    });
+    if (stats.length > 0) {
+      // FIXED: Use uid field instead of _id, and round averageRating
+      await Worker.findOneAndUpdate(
+        { uid: workerId }, // Find by uid field
+        {
+          averageRating: Math.round(stats[0].averageRating * 100) / 100, // Round to 2 decimal places
+          totalRatings: stats[0].totalRatings
+        }
+      );
+    } else {
+      // Reset ratings if no ratings found
+      await Worker.findOneAndUpdate(
+        { uid: workerId },
+        {
+          averageRating: 0,
+          totalRatings: 0
+        }
+      );
+    }
+  } catch (error) {
+    console.error('Error updating worker rating stats:', error);
+    throw error;
   }
 };
+
 
 // Controller to add rating
 export const addRating = async (req, res) => {

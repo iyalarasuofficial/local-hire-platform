@@ -8,4 +8,7 @@ const ratingSchema = new mongoose.Schema({
   feedback: { type: String },
 }, { timestamps: true });
 
+ratingSchema.index({ workerId: 1 });
+ratingSchema.index({ workerId: 1, createdAt: -1 });
+
 export default mongoose.model("Rating", ratingSchema);

@@ -10,6 +10,8 @@ import Logo from '../common/Logo';
 import axiosInstance from '../../api/axiosInstance';
 import ApiRoutes from '../../api/apiRoutes';
 import { Link } from 'react-router-dom';
+import { setUser } from '../../store/authSlice'; // adjust the path
+import { useDispatch } from 'react-redux';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -19,6 +21,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const dispatch=useDispatch();
 
   const handleRegister = async () => {
     if (!email || !password || !name || !phone) return toast.error('Please fill all fields');
@@ -53,34 +56,84 @@ const Register = () => {
     }
   };
 
-  const handleGoogleSignup = async () => {
-    setLoading(true);
-    const provider = new GoogleAuthProvider();
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+const handleGoogleSignup = async () => {
+  setLoading(true);
+  const provider = new GoogleAuthProvider();
 
-      const res = await axiosInstance.get(`${ApiRoutes.GET_PROFILE.path}/${user.uid}`);
-      if (res.data.exists) {
-        toast.success('Already registered! Redirecting...');
-        navigate(res.data.role === 'worker' ? '/dashboard/worker' : '/dashboard/user');
-      } else {
-        const userInfo = {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+
+    if (!user) {
+      toast.error('No authenticated user after login');
+      setLoading(false);
+      return;
+    }
+
+    // Check if user exists and get role from backend
+    const res = await axiosInstance.get(`${ApiRoutes.LOGIN.path}/${user.uid}`);
+    console.log(res.data);
+    if (res.data.exists) {
+      const role = res.data.role;
+
+      let name = user.displayName || '';
+      let profilePic = user.photoURL || '';
+
+      // For 'user' role, fetch extra profile info
+      if (role === 'user') {
+        try {
+          const redData = await axiosInstance.get(`${ApiRoutes.GET_USER_PROFILE.path}/${user.uid}`);
+          name = redData.data.name || name;
+          profilePic = redData.data.profilePic || profilePic;
+        } catch {
+          // Fail silently or toast if you want
+          toast.error('Failed to fetch user profile details');
+        }
+      }
+
+      // Dispatch to redux store
+      dispatch(
+        setUser({
+          uid: user.uid,
+          email: user.email || '',
+          name,
+          profilePic,
+          role,
+        })
+      );
+
+      toast.success(`Logged in as ${role}`);
+      navigate(
+        role === 'admin'
+          ? '/dashboard/admin'
+          : role === 'worker'
+          ? '/dashboard/worker'
+          : '/dashboard/user'
+      );
+    } else {
+      
+
+      // Save user info to localStorage for role selection step
+      localStorage.setItem(
+        'tempUser',
+        JSON.stringify({
           uid: user.uid,
           email: user.email,
-          name: user.displayName,
-          phone: '',
-        };
-        localStorage.setItem('tempUser', JSON.stringify(userInfo));
-        toast('Welcome! Choose your role to complete signup.', { icon: '🌟' });
-        navigate('/role');
-      }
-    } catch {
-      toast.error('Google signup failed');
-    } finally {
-      setLoading(false);
+          name: user.displayName || '',
+          phone: user.phoneNumber || '',
+        })
+      );
+
+      toast('Welcome! Choose your role to complete signup.', { icon: '🌟' });
+      navigate('/role');
     }
-  };
+  } catch (error) {
+    toast.error('Google signup failed');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-green-50 via-white to-green-50 relative overflow-hidden">
