@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Loader from '../common/Loader';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -12,6 +13,7 @@ import ApiRoutes from '../../api/apiRoutes';
 import { Link } from 'react-router-dom';
 import { setUser } from '../../store/authSlice'; // adjust the path
 import { useDispatch } from 'react-redux';
+import WorkerApiRoutes from '../../api/workerApiRoutes';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -32,15 +34,23 @@ const redirectBasedOnMongoRole = async (uid: string) => {
         toast.error('No authenticated user');
         return;
       }
-      let name = user.displayName || '';
+     let name = user.displayName || '';
       let profilePic = user.photoURL || '';
 
-      // If user role, fetch extra profile info from backend
-      if (role === "user") {
-        const redData = await axiosInstance.get(`${ApiRoutes.GET_USER_PROFILE.path}/${uid}`);
-        name = redData.data.name || name;
-        profilePic = redData.data.profilePic || profilePic;
-      }
+     if (role === 'user') {
+  const redData = await axiosInstance.get(`${ApiRoutes.GET_USER_PROFILE.path}/${uid}`);
+  name = redData.data.name || name;
+  profilePic = redData.data.profilePic || profilePic;
+} else if (role === 'worker') {
+  const redData = await axiosInstance.get(`${WorkerApiRoutes.GET_WORKER_PROFILE.path}/${uid}`);
+  name = redData.data.name || name;
+  profilePic = redData.data.profilePic || profilePic;
+}
+
+
+      console.log({name,profilePic});
+
+   
 
   
       dispatch(
@@ -115,6 +125,7 @@ const redirectBasedOnMongoRole = async (uid: string) => {
       await redirectBasedOnMongoRole(result.user.uid);
     } catch {
       toast.error('Google sign-in failed');
+      setLoading(false);
     } finally {
       setLoading(false);
     }
@@ -123,6 +134,7 @@ const redirectBasedOnMongoRole = async (uid: string) => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-green-50 via-white to-green-50 relative overflow-hidden">
       {/* Bubble animation */}
+      {loading && <Loader />}
       <motion.div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
         {[...Array(10)].map((_, i) => (
           <motion.div

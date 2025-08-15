@@ -1,21 +1,22 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useSelector } from "react-redux";
+import type { RootState } from "../store/store";
 
 interface ProtectedRouteProps {
   children: JSX.Element;
-  requiredRole?: string;
+  requiredRole?: "user" | "worker" | "admin";
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
-  const { user, role, loading } = useAuth();
+  const { uid, role, loading } = useSelector((state: RootState) => state.auth);
 
-  if (loading) return <div></div>;
+  if (loading) return <div>Loading...</div>;
 
-  if (!user) return <Navigate to="/login" />;
+  if (!uid) return <Navigate to="/login" replace />;
 
   if (requiredRole && role !== requiredRole) {
-    return <Navigate to="/unauthorized" />;
+    return <Navigate to="/unauthorized" replace />;
   }
 
   return children;

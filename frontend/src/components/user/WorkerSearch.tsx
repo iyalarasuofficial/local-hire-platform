@@ -9,7 +9,6 @@ import ApiRoutes from '../../api/apiRoutes';
 import toast from 'react-hot-toast';
 import { useNavigate } from "react-router-dom";
 import Booking from './Booking';
-
 // interfaces/Worker.ts
 export interface WorkerLocation {
   type: 'Point';

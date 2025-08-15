@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import axiosInstance from '../../api/axiosInstance';
 import ApiRoutes from '../../api/apiRoutes';
-import { useSearchParams } from 'react-router-dom';
+import Loader from '../common/Loader';
 
 interface Rating {
   _id: string;
@@ -59,6 +59,7 @@ const fetchReviews = async () => {
   } catch (err) {
     console.error('Error fetching reviews:', err);
     setError(err instanceof Error ? err.message : 'Failed to load reviews');
+    setLoading(false);
   } finally {
     setLoading(false);
   }
@@ -164,7 +165,7 @@ const fetchReviews = async () => {
       initial="hidden"
       animate="visible"
       className="container mx-auto px-4 py-8 max-w-4xl"
-    >
+    > {loading && <Loader />}
       {/* Header */}
       <motion.div variants={itemVariants} className="mb-8">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Customer Reviews</h2>

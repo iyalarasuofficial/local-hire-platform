@@ -1,14 +1,13 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
-
-
 interface AuthState {
   uid: string | null;
   email: string | null;
   name: string | null;
   role: 'user' | 'worker' | 'admin' | null;
   profilePic: string;
+  loading: boolean; // ✅ added loading state
 }
 
 const initialState: AuthState = {
@@ -17,6 +16,7 @@ const initialState: AuthState = {
   name: null,
   role: null,
   profilePic: "",
+  loading: true, // starts loading until auth check completes
 };
 
 export const authSlice = createSlice({
@@ -38,17 +38,20 @@ export const authSlice = createSlice({
       state.name = action.payload.name;
       state.role = action.payload.role;
       state.profilePic = action.payload.profilePic || "";
+      state.loading = false; // ✅ auth check done
     },
 
     updateUserProfile: (
       state,
-      action: PayloadAction<Partial<Omit<AuthState, 'uid' | 'role'>>>
+      action: PayloadAction<Partial<Omit<AuthState, 'uid' | 'role' | 'loading'>>>
     ) => {
-      // Only update provided fields
       if (action.payload.email !== undefined) state.email = action.payload.email;
       if (action.payload.name !== undefined) state.name = action.payload.name;
-      if (action.payload.profilePic !== undefined)
-        state.profilePic = action.payload.profilePic;
+      if (action.payload.profilePic !== undefined) state.profilePic = action.payload.profilePic;
+    },
+
+    setAuthLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload;
     },
 
     logoutUser: (state) => {
@@ -57,9 +60,10 @@ export const authSlice = createSlice({
       state.name = null;
       state.role = null;
       state.profilePic = "";
+      state.loading = false;
     },
   },
 });
 
-export const { setUser, updateUserProfile, logoutUser } = authSlice.actions;
+export const { setUser, updateUserProfile, logoutUser, setAuthLoading } = authSlice.actions;
 export default authSlice.reducer;

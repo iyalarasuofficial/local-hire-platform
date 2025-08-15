@@ -54,12 +54,17 @@ export const createBooking = async (req, res) => {
 export const cancelBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    console.log("cancel accepted");
+    const { cancelReason } = req.body; // e.g. "worker_rejected" or "user_cancelled"
 
-    // example logic
+    console.log("Cancel request received");
+
+    // Update booking with both status and cancel reason
     const booking = await Booking.findByIdAndUpdate(
       bookingId,
-      { status: "cancelled" },
+      { 
+        status: "cancelled",
+        cancelReason: cancelReason || null // store null if no reason provided
+      },
       { new: true }
     );
 
@@ -67,7 +72,11 @@ export const cancelBooking = async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
 
-    res.json({ message: "Booking cancelled successfully", booking });
+    res.json({ 
+      message: "Booking cancelled successfully", 
+      booking 
+    });
+    
   } catch (error) {
     console.error("Error cancelling booking:", error);
     res.status(500).json({ message: "Server error" });
@@ -79,33 +88,106 @@ export const getUserBookings = async (req, res) => {
     const { uid } = req.params; // Firebase UID of the user
 
     const bookings = await Booking.find({ userId: uid })
-      .populate("workerDetails", "name skills  phone charge  profilePic")
-
-    res.status(200).json(bookings);x
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-
-
-// 📌 Get bookings assigned to a worker
-export const getWorkerBookings = async (req, res) => {
-  try {
-    const { uid } = req.params;
-
-    const worker = await Worker.findOne({ uid });
-    if (!worker) return res.status(404).json({ message: "Worker not found" });
-
-    const bookings = await Booking.find({ workerId: worker._id })
-      .populate("userId", "name phone")
-      .sort({ createdAt: -1 });
+      .populate("workerDetails", "name skills phone charge profilePic")
+      .sort({ createdAt: -1 }); // latest first
 
     res.status(200).json(bookings);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+export const acceptedWork = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    // Find the booking by ID and update the status
+    const booking = await Booking.findByIdAndUpdate(
+      bookingId,
+      { status: "accepted" },
+      { new: true } // return updated document
+    );
+
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    res.status(200).json({
+      message: "Booking marked as accepted successfully",
+      booking
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const completedWork = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    // Find the booking
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    // Only allow completion if accepted (can add 'in-progress' if needed)
+    if (booking.status !== "accepted") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot complete booking with status: ${booking.status}. Booking must be 'accepted' first.`,
+      });
+    }
+
+    // Update in one go
+    booking.status = "completed";
+    booking.paymentStatus = "paid";
+
+   
+    // if (req.body.paymentMethod) {
+    //   booking.paymentMethod = req.body.paymentMethod;
+    // }
+
+    await booking.save();
+
+    // Populate worker details before sending response
+    await booking.populate("workerDetails");
+
+    res.status(200).json({
+      success: true,
+      message: "Booking marked as completed and payment recorded as paid.",
+      data: booking,
+    });
+  } catch (error) {
+    console.error("Error completing booking:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+
+// 📌 Get bookings assigned to a worker
+export const getWorkerBookings = async (req, res) => {
+  try {
+    const { uid } = req.params; // Firebase UID of the worker
+
+    const bookings = await Booking.find({ workerId: uid })
+      .populate("userDetails", "profilePic")
+      .sort({ createdAt: -1 });
+       // only profilePic from user
+
+    res.status(200).json(bookings);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
 
 // 📌 Get a single booking by ID
 export const getBookingById = async (req, res) => {

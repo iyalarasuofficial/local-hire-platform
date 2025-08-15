@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { X, AlertCircle, Loader2 } from 'lucide-react';
 import axiosInstance from '../../api/axiosInstance';
 import ApiRoutes from '../../api/apiRoutes';
+import Loader from '../common/Loader';
 
 
 interface ReviewModalProps {
@@ -75,8 +76,9 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-opacity-50 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4">
         {/* Header */}

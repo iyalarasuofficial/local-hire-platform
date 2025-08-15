@@ -5,6 +5,7 @@ import type{ RootState } from '../../store/store';
 import axiosInstance from '../../api/axiosInstance';
 import ApiRoutes from '../../api/apiRoutes';
 import toast from 'react-hot-toast';
+import Loader from '../common/Loader';
 
 export default function Booking({ isOpen, onClose, workerData }) {
 const auth = useSelector((state: RootState) => state.auth);
@@ -13,7 +14,7 @@ const userId = auth?.uid;
   
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     phoneNumber: '',
@@ -58,7 +59,7 @@ const handleBooking = async () => {
     return;
   }
 
-  setIsLoading(true);
+  setLoading(true);
 
   const bookingData = {
     userId,
@@ -86,7 +87,7 @@ const handleBooking = async () => {
     console.error('Booking error:', error);
     toast.error('Network error. Please check your connection and try again.');
   } finally {
-    setIsLoading(false);
+    setLoading(false);
   }
 };
 
@@ -110,6 +111,7 @@ const handleBooking = async () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop with blur */}
+       {loading && <Loader />}
       <div 
         className="absolute inset-0  bg-opacity-50 backdrop-blur-sm"
         onClick={handleClose}
@@ -270,10 +272,10 @@ const handleBooking = async () => {
           <div className="flex space-x-3">
             <button
               onClick={handleBooking}
-              disabled={isLoading || !selectedDate || !selectedTime || !formData.fullName || !formData.phoneNumber || !formData.emailAddress || !formData.serviceAddress}
+              disabled={loading || !selectedDate || !selectedTime || !formData.fullName || !formData.phoneNumber || !formData.emailAddress || !formData.serviceAddress}
               className="flex-1 bg-green-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
             >
-              {isLoading ? (
+              {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Processing...
@@ -285,7 +287,7 @@ const handleBooking = async () => {
             <button 
               onClick={handleClose}
               className="flex-1 bg-white text-gray-700 py-3 px-6 rounded-lg font-medium border border-gray-300 hover:bg-gray-50 transition-colors"
-              disabled={isLoading}
+              disabled={loading}
             >
               Cancel
             </button>

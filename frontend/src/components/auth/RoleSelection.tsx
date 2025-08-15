@@ -7,6 +7,7 @@ import axiosInstance from '../../api/axiosInstance';
 import ApiRoutes from '../../api/apiRoutes';
 import { setUser } from '../../store/authSlice'; 
 import { useDispatch } from 'react-redux';
+import Loader from '../common/Loader';
 
 const RoleSelection: React.FC = () => {
   const navigate = useNavigate();
@@ -82,6 +83,7 @@ const RoleSelection: React.FC = () => {
       navigate(role === 'worker' ? '/dashboard/worker' : '/dashboard/user');
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Something went wrong. Please try again.');
+      setLoading(false);
     } finally {
       setLoading(false);
     }
@@ -95,6 +97,7 @@ const RoleSelection: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-green-50 px-4">
+       {loading && <Loader />}
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}

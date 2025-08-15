@@ -15,6 +15,7 @@ import {
 import { useParams } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import Booking from './Booking';
+import Loader from '../common/Loader';
 
 interface Worker {
   _id: string;
@@ -89,6 +90,7 @@ const WorkerDetail: React.FC = () => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred while loading the worker profile';
       setError(errorMessage);
+      setLoading(false);
     } finally {
       setLoading(false);
     }
@@ -273,6 +275,7 @@ const WorkerDetail: React.FC = () => {
         animate="visible"
         className="min-h-screen bg-gray-50"
       >
+         {loading && <Loader />}
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           {/* Header Section */}
           <motion.div

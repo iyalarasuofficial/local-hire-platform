@@ -1,4 +1,4 @@
-// src/api/apiRoutes.ts
+
 const ApiRoutes = {
   LOGIN: { path: "/api/auth/check", authenticate: false },
   USER_SIGNUP: { path: "/api/users/register", authenticate: false },
@@ -11,13 +11,15 @@ const ApiRoutes = {
 
   USER_BOOKING:{path:"/api/bookings/user",authenticate:true},
 
-  CANCEL_BOOKING:{path:"api/bookings/user",authenticate:true},
+  CANCEL_BOOKING:{path:"api/bookings/common",authenticate:true},
 
   WRITE_REVIEW:{path:"api/users/rate",authenticate:true},
 
   GET_USER_PROFILE:{path:"api/users",authenticate:true},
 
   UPDATE_USER_PROFILE:{path:"api/users/edit-profile",authenticate:true},
+
+  COMPLETE_WORK:{path:"api/bookings/user/completed",authenticated:true},
 };
 
 export default ApiRoutes;

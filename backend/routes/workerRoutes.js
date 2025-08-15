@@ -23,6 +23,6 @@ router.get("/:uid", getWorkerProfile);
 router.get("/:uid/rating", getWorkerRating);
 
 // 📌 Update worker profile
-router.patch("/:uid", updateWorkerProfile);
+router.put("/edit-profile/:uid",updateWorkerProfile);
 
 export default router;

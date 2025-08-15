@@ -1,5 +1,3 @@
-// src/routes/AppRoutes.js
-import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "../pages/landing/Home";
 import About from "../pages/landing/About";
@@ -10,7 +8,7 @@ import Role from "../pages/auth/Role";
 import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 import ProtectedRoute from "./ProtectedRoute";
 import RedirectIfAuthenticated from "./RedirectIfAuthenticated";
-
+import worker_routes from "../routes/Worker.routes"
 import userroutes from "../routes/User.routes";
 
 
@@ -21,7 +19,7 @@ const AppRoutes = () => {
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<RedirectIfAuthenticated><About /></RedirectIfAuthenticated>} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/login" element={<RedirectIfAuthenticated><SignIn /></RedirectIfAuthenticated>} />
+        <Route path="/login" element={<SignIn />} />
         <Route path="/register" element={<SignUp />} />
         <Route path="/role" element={<Role />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -33,6 +31,17 @@ const AppRoutes = () => {
             path={path}
             element={
               <ProtectedRoute requiredRole="user">
+                {element}
+              </ProtectedRoute>
+            }
+          />
+        ))}
+        {worker_routes.map(({ path, element }, index) => (
+          <Route
+            key={index}
+            path={path}
+            element={
+              <ProtectedRoute requiredRole="worker">
                 {element}
               </ProtectedRoute>
             }

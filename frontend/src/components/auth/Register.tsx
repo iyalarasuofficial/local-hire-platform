@@ -12,6 +12,7 @@ import ApiRoutes from '../../api/apiRoutes';
 import { Link } from 'react-router-dom';
 import { setUser } from '../../store/authSlice'; // adjust the path
 import { useDispatch } from 'react-redux';
+import Loader from '../common/Loader';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -129,6 +130,7 @@ const handleGoogleSignup = async () => {
     }
   } catch (error) {
     toast.error('Google signup failed');
+    setLoading(false);
   } finally {
     setLoading(false);
   }
@@ -137,6 +139,7 @@ const handleGoogleSignup = async () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-green-50 via-white to-green-50 relative overflow-hidden">
+       {loading && <Loader />}
       <motion.div
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}

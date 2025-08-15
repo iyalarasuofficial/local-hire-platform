@@ -1,5 +1,5 @@
 import express from "express";
-import {createBooking,getWorkerBookings,updateBookingStatus,updatePaymentStatus,getBookingById,getAllBookings, getUserBookings, cancelBooking,
+import {createBooking,getWorkerBookings,updateBookingStatus,updatePaymentStatus,getBookingById,getAllBookings, getUserBookings,acceptedWork ,cancelBooking,completedWork
 } from "../controllers/bookingController.js";
 
 const router = express.Router();
@@ -8,7 +8,11 @@ const router = express.Router();
 router.post("/", createBooking);
 router.get("/user/:uid",getUserBookings);
 router.get("/worker/:uid", getWorkerBookings);
-router.patch("/user/:bookingId",cancelBooking);
+router.patch("/common/:bookingId",cancelBooking);
+
+router.patch("/user/completed/:bookingId",completedWork);
+
+router.patch("/worker/accepted/:bookingId",acceptedWork)
 
 // 📌 Get bookings by worker UID
 router.get("/worker/:uid", getWorkerBookings);

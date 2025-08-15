@@ -6,6 +6,15 @@ import type { RootState } from '../../store/store';
 import { updateUserProfile } from '../../store/authSlice';
 import axiosInstance from '../../api/axiosInstance';
 import ApiRoutes from '../../api/apiRoutes';
+import Loader from '../common/Loader';
+import {
+  getAuth,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updateEmail,
+  sendEmailVerification,
+  reload
+} from 'firebase/auth';
 
 const EditProfile = () => {
   const dispatch = useDispatch();
@@ -13,20 +22,9 @@ const EditProfile = () => {
   const uid = user.uid;
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editForm, setEditForm] = useState<{
-    name?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    profilePic?: string;
-  }>({});
-  const [userData, setUserData] = useState<{
-    name?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    profilePic?: string;
-  }>({});
+  const [hasFetched, setHasFetched] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+  const [userData, setUserData] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -35,33 +33,28 @@ const EditProfile = () => {
   const [dataFetching, setDataFetching] = useState(false);
 
   useEffect(() => {
-    if (uid) {
+    if (uid && !hasFetched) {
+      setHasFetched(true);
       fetchData();
     }
-  }, [uid]);
+  }, [uid, hasFetched]);
 
   const fetchData = async () => {
     try {
       setProfileLoading(true);
       setDataFetching(true);
-      
-      // Show loading toast for long operations
-      const loadingToast = toast.loading('Loading profile data...');
-
-      const response = await axiosInstance.get(`${ApiRoutes.GET_USER_PROFILE.path}/${uid}`);
-
+      const toastId = toast.loading('Loading profile data...');
+      const res = await axiosInstance.get(`${ApiRoutes.GET_USER_PROFILE.path}/${uid}`);
       setUserData({
-        name: response.data.name || '',
-        email: response.data.email || '',
-        phone: response.data.phone || '',
-        address: response.data.address || '',
-        profilePic: response.data.profilePic || ''
+        name: res.data.name || '',
+        email: res.data.email || '',
+        phone: res.data.phone || '',
+        address: res.data.address || '',
+        profilePic: res.data.profilePic || ''
       });
-
-      toast.success('Profile loaded successfully!', { id: loadingToast });
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      toast.error('Failed to load profile data. Please try again.');
+      toast.dismiss(toastId);
+    } catch {
+      toast.error('Failed to load profile data.');
     } finally {
       setProfileLoading(false);
       setDataFetching(false);
@@ -77,7 +70,6 @@ const EditProfile = () => {
       profilePic: userData.profilePic || ''
     });
     setIsEditModalOpen(true);
-    toast.success('Edit mode activated');
   };
 
   const closeEditModal = () => {
@@ -85,51 +77,37 @@ const EditProfile = () => {
     setEditForm({});
     setShowPasswordModal(false);
     setCurrentPassword('');
-    toast.dismiss(); // Clear any existing toasts
+    toast.dismiss();
   };
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setEditForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setEditForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.8): Promise<string> => {
+  const compressImage = (file: File, maxWidth = 800, quality = 0.8): Promise<string> => {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d');
       const img = new Image();
-      
       img.onload = () => {
-        // Calculate new dimensions
         let { width, height } = img;
-        
-        if (width > height) {
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxWidth) {
-            width = (width * maxWidth) / height;
-            height = maxWidth;
-          }
+        if (width > height && width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        } else if (height > maxWidth) {
+          width = (width * maxWidth) / height;
+          height = maxWidth;
         }
-        
-        // Set canvas size
         canvas.width = width;
         canvas.height = height;
-        
-        // Draw and compress
+        if (!ctx) {
+          resolve('');
+          return;
+        }
         ctx.drawImage(img, 0, 0, width, height);
-        const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
-        resolve(compressedBase64);
+        resolve(canvas.toDataURL('image/jpeg', quality));
       };
-      
       img.src = URL.createObjectURL(file);
     });
   };
@@ -140,39 +118,19 @@ const EditProfile = () => {
       try {
         setImageUploading(true);
         const uploadToast = toast.loading('Processing image...');
-
-        // Validate file type
         if (!file.type.startsWith('image/')) {
           toast.error('Please select a valid image file', { id: uploadToast });
           return;
         }
-
-        // Validate file size (10MB limit)
         if (file.size > 10 * 1024 * 1024) {
           toast.error('Image size must be less than 10MB', { id: uploadToast });
           return;
         }
-
-        // Check file size and show info
-        const fileSizeMB = file.size / (1024 * 1024);
-        console.log(`Original file size: ${fileSizeMB.toFixed(2)} MB`);
-        
-        // Compress the image
         const compressedBase64 = await compressImage(file, 800, 0.7);
-        
-        // Check compressed size
-        const compressedSizeKB = (compressedBase64.length * 0.75) / 1024;
-        console.log(`Compressed size: ${compressedSizeKB.toFixed(2)} KB`);
-        
-        setEditForm(prev => ({
-          ...prev,
-          profilePic: compressedBase64
-        }));
-
-        toast.success(`Image processed! Compressed to ${compressedSizeKB.toFixed(0)}KB`, { id: uploadToast });
-      } catch (error) {
-        console.error('Error compressing image:', error);
-        toast.error('Failed to process image. Please try again.');
+        setEditForm(prev => ({ ...prev, profilePic: compressedBase64 }));
+        toast.success('Profile picture updated!', { id: uploadToast });
+      } catch {
+        toast.error('Failed to process image.');
       } finally {
         setImageUploading(false);
       }
@@ -180,7 +138,6 @@ const EditProfile = () => {
   };
 
   const handleSave = async () => {
-    // Validation
     if (!editForm.name?.trim()) {
       toast.error('Name is required');
       return;
@@ -189,8 +146,6 @@ const EditProfile = () => {
       toast.error('Email is required');
       return;
     }
-
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(editForm.email)) {
       toast.error('Please enter a valid email address');
@@ -198,10 +153,10 @@ const EditProfile = () => {
     }
 
     if (editForm.email !== user.email) {
-      toast.info('Email change detected - password verification required');
       setShowPasswordModal(true);
       return;
     }
+
     await saveProfile();
   };
 
@@ -210,7 +165,6 @@ const EditProfile = () => {
       toast.error('Please enter your current password');
       return;
     }
-
     if (currentPassword.length < 6) {
       toast.error('Password must be at least 6 characters long');
       return;
@@ -220,8 +174,6 @@ const EditProfile = () => {
     const updateToast = toast.loading('Updating email address...');
 
     try {
-      const { getAuth, EmailAuthProvider, reauthenticateWithCredential, updateEmail } =
-        await import('firebase/auth');
       const auth = getAuth();
       const user_auth = auth.currentUser;
 
@@ -229,56 +181,56 @@ const EditProfile = () => {
         throw new Error('No authenticated user found');
       }
 
-      // Step 1: Re-authenticate
-      toast.loading('Verifying password...', { id: updateToast });
-      const credential = EmailAuthProvider.credential(user.email!, currentPassword);
+      const credential = EmailAuthProvider.credential(user_auth.email!, currentPassword);
       await reauthenticateWithCredential(user_auth, credential);
 
-      // Step 2: Update email
-      toast.loading('Updating email address...', { id: updateToast });
-      await updateEmail(user_auth, editForm.email!);
+      await updateEmail(user_auth, editForm.email);
 
-      // Step 3: Send verification email
-      if (user_auth) {
-        toast.loading('Sending verification email...', { id: updateToast });
-        await user_auth.sendEmailVerification();
-      }
+      await reload(user_auth);
 
-      // Step 4: Save profile
-      toast.loading('Saving profile changes...', { id: updateToast });
-      await saveProfile();
+      await sendEmailVerification(user_auth);
 
-      toast.success('Email updated successfully! Please check your inbox for verification.', { id: updateToast });
+      await saveProfile(updateToast, 'Email updated successfully! Please verify your new email address.');
+
       setShowPasswordModal(false);
       setCurrentPassword('');
+
     } catch (error: any) {
-      console.error('Error updating email:', error);
-
-      let errorMessage = 'Failed to update email. Please try again.';
-      
-      if (error.code === 'auth/wrong-password') {
-        errorMessage = 'Current password is incorrect';
-      } else if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email is already in use by another account';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address format';
-      } else if (error.code === 'auth/requires-recent-login') {
-        errorMessage = 'Please log out and log back in before changing your email';
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many failed attempts. Please try again later.';
+      let errorMessage = 'Failed to update email.';
+      switch (error.code) {
+        case 'auth/wrong-password':
+          errorMessage = 'Current password is incorrect';
+          break;
+        case 'auth/email-already-in-use':
+          errorMessage = 'This email is already in use by another account';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Invalid email address format';
+          break;
+        case 'auth/requires-recent-login':
+          errorMessage = 'For security reasons, please log out and log back in before changing your email';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = 'Too many failed attempts. Please try again later.';
+          break;
+        case 'auth/user-not-found':
+          errorMessage = 'User account not found. Please log in again.';
+          break;
+        case 'auth/invalid-credential':
+          errorMessage = 'Invalid credentials provided';
+          break;
+        default:
+          errorMessage = `Update failed: ${error.message}`;
       }
-
       toast.error(errorMessage, { id: updateToast });
     } finally {
       setLoading(false);
     }
   };
 
-  const saveProfile = async () => {
-    setLoading(true);
-    const saveToast = toast.loading('Saving profile changes...');
-
+  const saveProfile = async (toastId = null, successMsg = 'Profile updated successfully!') => {
     try {
+      if (!toastId) toastId = toast.loading('Saving profile changes...');
       const response = await axiosInstance.put(
         `${ApiRoutes.UPDATE_USER_PROFILE.path}/${uid}`,
         {
@@ -289,9 +241,7 @@ const EditProfile = () => {
           profilePic: editForm.profilePic
         }
       );
-
       if (response.status === 200) {
-        // Update Redux store
         dispatch(
           updateUserProfile({
             name: editForm.name?.trim(),
@@ -299,73 +249,36 @@ const EditProfile = () => {
             profilePic: editForm.profilePic
           })
         );
-
-        // Update local state
         setUserData(prev => ({
           ...prev,
-          ...editForm,
-          name: editForm.name?.trim(),
-          email: editForm.email?.trim(),
-          phone: editForm.phone?.trim(),
-          address: editForm.address?.trim()
+          ...editForm
         }));
-
         closeEditModal();
-        toast.success('Profile updated successfully!', { 
-          id: saveToast,
-          duration: 4000,
-          icon: '✅'
-        });
+        toast.success(successMsg, { id: toastId });
       }
-    } catch (error: any) {
-      console.error('Error updating profile:', error);
-      
-      let errorMessage = 'Failed to update profile. Please try again.';
-      
-      if (error.response?.status === 400) {
-        errorMessage = 'Invalid data provided. Please check your input.';
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Authentication failed. Please log in again.';
-      } else if (error.response?.status === 500) {
-        errorMessage = 'Server error. Please try again later.';
-      }
-
-      toast.error(errorMessage, { id: saveToast });
+    } catch {
+      toast.error('Failed to update profile.', { id: toastId });
     } finally {
       setLoading(false);
     }
   };
 
   if (profileLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative">
-            <div className="w-16 h-16 border-4 border-green-200 rounded-full animate-spin"></div>
-            <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
-          </div>
-          <p className="text-gray-600 mt-4 font-medium">Loading profile...</p>
-          {dataFetching && (
-            <p className="text-gray-500 text-sm mt-2">Please wait while we fetch your data</p>
-          )}
-        </div>
-      </div>
-    );
+    return <Loader />;
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
+        {loading && <Loader />}
+
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <img
-                  src={
-                    userData.profilePic ||
-                    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face'
-                  }
+                  src={userData.profilePic || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face'}
                   alt="Profile"
                   className="w-20 h-20 rounded-full object-cover border-4 border-green-100"
                 />
@@ -386,11 +299,7 @@ const EditProfile = () => {
               disabled={loading}
               className="bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
             >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Edit className="w-4 h-4" />
-              )}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit className="w-4 h-4" />}
               <span>{loading ? 'Processing...' : 'Edit Profile'}</span>
             </button>
           </div>
@@ -399,7 +308,6 @@ const EditProfile = () => {
         {/* Profile Information */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-6">Profile Information</h2>
-
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
@@ -409,7 +317,6 @@ const EditProfile = () => {
                   <p className="font-medium text-gray-800">{userData.email}</p>
                 </div>
               </div>
-
               <div className="flex items-center space-x-3">
                 <Phone className="w-5 h-5 text-gray-400" />
                 <div>
@@ -418,7 +325,6 @@ const EditProfile = () => {
                 </div>
               </div>
             </div>
-
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
                 <MapPin className="w-5 h-5 text-gray-400" />
@@ -427,7 +333,6 @@ const EditProfile = () => {
                   <p className="font-medium text-gray-800">{userData.address || 'Not provided'}</p>
                 </div>
               </div>
-
               <div className="flex items-center space-x-3">
                 <User className="w-5 h-5 text-gray-400" />
                 <div>
@@ -441,7 +346,7 @@ const EditProfile = () => {
 
         {/* Edit Profile Modal */}
         {isEditModalOpen && !showPasswordModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
               <div className="flex items-center justify-between p-6 border-b">
                 <h3 className="text-lg font-semibold text-gray-800">Edit Profile</h3>
@@ -453,7 +358,6 @@ const EditProfile = () => {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-
               <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
                 {/* Profile Picture */}
                 <div className="flex flex-col items-center space-y-3">
@@ -548,33 +452,33 @@ const EditProfile = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
-              </div>
 
-              <div className="flex justify-end space-x-3 p-6 border-t">
-                <button
-                  onClick={closeEditModal}
-                  disabled={loading}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={loading || imageUploading}
-                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      <span>Save Changes</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex justify-end space-x-3 p-6 border-t">
+                  <button
+                    onClick={closeEditModal}
+                    disabled={loading}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={loading || imageUploading}
+                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -582,7 +486,7 @@ const EditProfile = () => {
 
         {/* Password Confirmation Modal for Email Update */}
         {showPasswordModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
               <div className="flex items-center justify-between p-6 border-b">
                 <h3 className="text-lg font-semibold text-gray-800">Confirm Password</h3>
@@ -600,8 +504,8 @@ const EditProfile = () => {
                   <p className="text-sm text-gray-600 mb-4">
                     To update your email address, please enter your current password for security verification.
                   </p>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                    <p className="text-sm text-blue-800">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-green-800">
                       <strong>Email change:</strong> {userData.email} → {editForm.email}
                     </p>
                   </div>
@@ -630,7 +534,7 @@ const EditProfile = () => {
                 <button
                   onClick={() => setShowPasswordModal(false)}
                   disabled={loading}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>

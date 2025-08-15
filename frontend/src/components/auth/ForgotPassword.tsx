@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { useNavigate, Link } from 'react-router-dom';
 import Logo from '../common/Logo';
 import { motion } from 'framer-motion';
+import Loader from '../common/Loader';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -21,7 +22,7 @@ const ForgotPassword = () => {
       navigate('/login');
     } catch (error) {
       toast.error('Failed to send reset email');
-      console.error(error);
+      setLoading(false);
     } finally {
       setLoading(false);
     }
@@ -30,6 +31,7 @@ const ForgotPassword = () => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-green-50 via-white to-green-50 relative overflow-hidden">
       {/* Bubble animation */}
+       {loading && <Loader />}
       <motion.div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
         {[...Array(10)].map((_, i) => (
           <motion.div

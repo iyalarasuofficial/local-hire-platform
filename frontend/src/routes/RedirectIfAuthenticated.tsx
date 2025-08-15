@@ -17,20 +17,25 @@ const RedirectIfAuthenticated = ({ children }: Props) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(getAuth(), (user) => {
-      if (user && uid && role) {
-        console.log(role);
-        switch (role) {
-          case 'admin':
-            navigate('/dashboard/admin', { replace: true });
-            break;
-          case 'worker':
-            navigate('/dashboard/worker', { replace: true });
-            break;
-          case 'user':
-            navigate('/dashboard/user', { replace: true });
-            break;
-          default:
-            navigate('/', { replace: true });
+      if (user && uid) {
+        // Only redirect if role exists
+        if (role) {
+          switch (role) {
+            case 'admin':
+              navigate('/dashboard/admin', { replace: true });
+              break;
+            case 'worker':
+              navigate('/dashboard/worker', { replace: true });
+              break;
+            case 'user':
+              navigate('/dashboard/user', { replace: true });
+              break;
+            default:
+              navigate('/', { replace: true });
+          }
+        } else {
+          // Role missing, stay on the same page (let user pick role)
+          setLoading(false);
         }
       } else {
         setLoading(false);

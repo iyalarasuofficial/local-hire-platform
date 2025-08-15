@@ -1,8 +1,49 @@
 // src/components/user/BookingDetailsModal.tsx
 import React from 'react';
 import {
-  X, Calendar, Clock, User, Phone, Mail, MapPin, Star
+  X, Calendar, Clock, User, Phone, Mail, MapPin, Star, CheckCircle, XCircle, MessageCircle, Edit3, CreditCard
 } from 'lucide-react';
+
+// Define the Booking interface (make sure this matches your main component)
+interface WorkerDetails {
+  _id: string;
+  uid: string;
+  name: string;
+  phone: string;
+  skills: string[];
+  profilePic?: string;
+  rating?: number;
+  charge?: string;
+  email?: string;
+}
+
+interface Review {
+  _id?: string;
+  rating: number;
+  comment: string;
+  createdAt?: string;
+}
+
+interface Booking {
+  _id: string;
+  workerId: string;
+  workerDetails: WorkerDetails;
+  bookingDate: string;
+  bookingTime: string;
+  fullName: string;
+  phoneNumber: string;
+  emailAddress: string;
+  serviceAddress: string;
+  specialRequirements?: string;
+  status: 'pending' | 'accepted' | 'completed' | 'cancelled';
+  paymentStatus: 'pending' | 'paid';
+  paymentMethod: string;
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+  review?: Review;
+  cancelReason?: 'worker_rejected' | 'user_cancelled' | 'other';
+}
 
 interface BookingDetailsModalProps {
   isOpen: boolean;
@@ -14,6 +55,7 @@ interface BookingDetailsModalProps {
   formatDate: (date: string) => string;
   renderStars: (rating: number) => React.ReactNode;
   handleCancelBooking: (bookingId: string) => void;
+  handleMarkCompleted: (bookingId: string) => void;
   handleWriteReview: (booking: Booking) => void;
 }
 
@@ -27,17 +69,30 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
   formatDate,
   renderStars,
   handleCancelBooking,
+  handleMarkCompleted,
   handleWriteReview
 }) => {
   if (!isOpen || !booking) return null;
 
   const workerInfo = getWorkerInfo(booking.workerDetails);
 
+  const getPaymentStatusColor = (paymentStatus: string) => {
+    return paymentStatus === 'paid' 
+      ? 'bg-green-100 text-green-800 border-green-200' 
+      : 'bg-yellow-100 text-yellow-800 border-yellow-200';
+  };
+
+  const getPaymentStatusIcon = (paymentStatus: string) => {
+    return paymentStatus === 'paid' ? 
+      <CheckCircle className="h-4 w-4" /> : 
+      <Clock className="h-4 w-4" />;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Overlay */}
       <div
-        className="absolute inset-0  bg-opacity-50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
         onClick={onClose}
       />
 
@@ -86,15 +141,64 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
             </div>
           </div>
 
-          {/* Booking Status */}
-          <div className="flex items-center justify-center">
-            <div
-              className={`flex items-center space-x-2 px-4 py-2 rounded-full border text-lg font-medium ${getStatusColor(booking.status)}`}
-            >
-              {getStatusIcon(booking.status)}
-              <span className="capitalize">{booking.status.replace('-', ' ')}</span>
+          {/* Status and Payment Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Booking Status */}
+            <div className="flex flex-col items-center">
+              <label className="text-sm font-medium text-gray-700 mb-2">Booking Status</label>
+              <div
+                className={`flex items-center space-x-2 px-4 py-2 rounded-full border text-sm font-medium ${getStatusColor(booking.status)}`}
+              >
+                {getStatusIcon(booking.status)}
+                <span className="capitalize">{booking.status.replace('-', ' ')}</span>
+              </div>
+            </div>
+
+            {/* Payment Status */}
+            <div className="flex flex-col items-center">
+              <label className="text-sm font-medium text-gray-700 mb-2">Payment Status</label>
+              <div
+                className={`flex items-center space-x-2 px-4 py-2 rounded-full border text-sm font-medium ${getPaymentStatusColor(booking.paymentStatus)}`}
+              >
+                {getPaymentStatusIcon(booking.paymentStatus)}
+                <span className="capitalize">{booking.paymentStatus}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Method: {booking.paymentMethod}</p>
             </div>
           </div>
+
+          {/* Payment Completion Notice */}
+          {booking.status === 'completed' && booking.paymentStatus === 'paid' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
+                <div>
+                  <h4 className="text-sm font-medium text-green-800">Work Completed & Payment Processed</h4>
+                  <p className="text-sm text-green-700 mt-1">
+                    This service has been marked as completed and payment has been processed successfully.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cancel Reason */}
+          {booking.status === 'cancelled' && booking.cancelReason && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center mb-2">
+                <XCircle className="h-4 w-4 text-red-600 mr-2" />
+                <h4 className="text-sm font-medium text-red-800">
+                  {booking.cancelReason === 'worker_rejected' ? 'Cancelled by Worker' : 
+                   booking.cancelReason === 'user_cancelled' ? 'Cancelled by You' : 'Booking Cancelled'}
+                </h4>
+              </div>
+              <p className="text-sm text-red-700">
+                {booking.cancelReason === 'worker_rejected' && 'The worker was unable to accept your booking request.'} 
+                {booking.cancelReason === 'user_cancelled' && 'You cancelled this booking.'}
+                {booking.cancelReason === 'other' && 'This booking was cancelled due to unforeseen circumstances.'}
+              </p>
+            </div>
+          )}
 
           {/* Review */}
           {booking.review && (
@@ -146,24 +250,25 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                 <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
                   <Mail className="h-4 w-4 mr-2" /> Email Address
                 </label>
-                <p className="text-gray-800">{booking.emailAddress}</p>
+                <p className="text-gray-800 break-all">{booking.emailAddress}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Payment Status
+                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                  <CreditCard className="h-4 w-4 mr-2" /> Payment Information
                 </label>
-                <div className="space-y-1">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      booking.paymentStatus === 'paid'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    {booking.paymentStatus.charAt(0).toUpperCase() +
-                      booking.paymentStatus.slice(1)}
-                  </span>
-                  <p className="text-xs text-gray-500">Method: {booking.paymentMethod}</p>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">Status:</span>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium border ${getPaymentStatusColor(booking.paymentStatus)}`}
+                    >
+                      {booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">Method: {booking.paymentMethod}</p>
+                  {booking.status === 'completed' && booking.paymentStatus === 'paid' && (
+                    <p className="text-xs text-green-600 font-medium">✓ Payment completed upon work completion</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -202,7 +307,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Footer Actions */}
         <div className="px-6 pb-6">
           <div className="flex space-x-3">
             {booking.status === 'pending' && (
@@ -211,27 +316,45 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                   handleCancelBooking(booking._id);
                   onClose();
                 }}
-                className="flex-1 bg-red-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-600 transition-colors"
+                className="flex-1 bg-red-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-600 transition-colors flex items-center justify-center"
               >
+                <XCircle className="h-4 w-4 mr-2" />
                 Cancel Booking
               </button>
             )}
-            {(booking.status === 'approved' || booking.status === 'in-progress') && (
-              <button className="flex-1 bg-green-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-600 transition-colors">
-                Contact Professional
-              </button>
+            
+            {booking.status === 'accepted' && (
+              <>
+                <button className="flex-1 bg-blue-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-600 transition-colors flex items-center justify-center">
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Contact Professional
+                </button>
+                <button 
+                  onClick={() => {
+                    handleMarkCompleted(booking._id);
+                    onClose();
+                  }}
+                  className="flex-1 bg-green-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-600 transition-colors flex items-center justify-center"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Mark as Completed
+                </button>
+              </>
             )}
+            
             {booking.status === 'completed' && (
               <button
                 onClick={() => {
                   onClose();
                   handleWriteReview(booking);
                 }}
-                className="flex-1 bg-purple-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-purple-600 transition-colors"
+                className="flex-1 bg-purple-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-purple-600 transition-colors flex items-center justify-center"
               >
+                <Edit3 className="h-4 w-4 mr-2" />
                 {booking.review ? 'Edit Review' : 'Write Review'}
               </button>
             )}
+            
             <button
               onClick={onClose}
               className="flex-1 bg-white text-gray-700 py-3 px-6 rounded-lg font-medium border border-gray-300 hover:bg-gray-50 transition-colors"
