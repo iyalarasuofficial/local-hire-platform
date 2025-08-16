@@ -4,7 +4,6 @@ import { X, AlertCircle, Loader2 } from 'lucide-react';
 import axiosInstance from '../../api/axiosInstance';
 import ApiRoutes from '../../api/apiRoutes';
 
-
 interface ReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
