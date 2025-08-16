@@ -10,7 +10,7 @@ const WorkerContact = () => {
             <WorkerNav />
             <ContactHero />
             <ContactSection />
-            <Footer />
+           <Footer panelType="worker"/>
         </>
     )
 

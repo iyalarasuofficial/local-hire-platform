@@ -6,17 +6,18 @@ import HowItWork from "../../components/landing/HowItWork";
 import OurMission from "../../components/landing/OurMission";
 import Testimonials from "../../components/landing/Testimonials";
 import WhyChooseUs from "../../components/landing/WhyChooseUs";
+import WorkerPanelHero from '../../components/worker/WorkerPanelHero';
 
 const WorkerHome = () => {
   return (
     <>
     <WorkerNav/>
-    <LandHero/>
+    <WorkerPanelHero/>
     <HowItWork/>
     <OurMission/>
     <WhyChooseUs/>
     <Testimonials/>
-    <Footer/>
+  <Footer panelType="worker"/>
     </>
   )
 }

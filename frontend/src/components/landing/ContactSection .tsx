@@ -1,35 +1,52 @@
-// ContactSection.tsx
 import React, { useState } from 'react';
 import {
   MapPin, Phone, Clock, Mail,
   Facebook, Instagram, Linkedin, Youtube
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
+import axiosInstance from '../../api/axiosInstance';
+import ApiRoutes from '../../api/apiRoutes';
+import Loader from '../common/Loader';
 
 const ContactSection = () => {
   const [formData, setFormData] = useState({
     fullName: '', phone: '', email: '', message: ''
   });
+  const [loading, setLoading] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.fullName || !formData.phone || !formData.email) {
-      alert('Please fill all required fields.');
+      toast.error("Please fill all required fields.");
       return;
     }
 
-    console.log('Submitted:', formData);
-    alert('Thank you! We’ll get back to you.');
-    setFormData({ fullName: '', phone: '', email: '', message: '' });
+    setLoading(true);
+    try {
+      const res = await axiosInstance.post(ApiRoutes.CONTACT_ADMIN.path, formData);
+
+      if (res.data.success) {
+        toast.success("Thank you! We’ll get back to you.");
+        setFormData({ fullName: "", phone: "", email: "", message: "" });
+      } else {
+        toast.error("Failed to submit. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const contactInfo = [
     { icon: MapPin, title: 'Address', content: '9/5, Suresh Nagar, Selaiyur, Chennai-600073' },
-    { icon: Phone, title: 'Phone', content: '+91 9150324381' },
+    { icon: Phone, title: 'Phone', content: '+91 987654321' },
     { icon: Clock, title: 'Hours', content: 'Mon–Sat: 10 AM – 8 PM' },
     { icon: Mail, title: 'Email', content: 'localhire@gmail.com' }
   ];
@@ -105,6 +122,7 @@ const ContactSection = () => {
                 name="fullName"
                 value={formData.fullName}
                 onChange={handleInputChange}
+                disabled={loading}
                 className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none"
               />
             </div>
@@ -116,6 +134,7 @@ const ContactSection = () => {
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
+                disabled={loading}
                 className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none"
               />
             </div>
@@ -127,6 +146,7 @@ const ContactSection = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
+                disabled={loading}
                 className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none"
               />
             </div>
@@ -138,18 +158,42 @@ const ContactSection = () => {
                 value={formData.message}
                 onChange={handleInputChange}
                 rows={4}
+                disabled={loading}
                 className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none"
               />
             </div>
 
             <motion.button
-              onClick={handleSubmit}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition"
-            >
-              Send Message
-            </motion.button>
+  onClick={handleSubmit}
+  whileHover={{ scale: 1.02 }}
+  whileTap={{ scale: 0.98 }}
+  disabled={loading}
+  className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center space-x-2"
+>
+  {loading && (
+    <svg
+      className="animate-spin h-5 w-5 text-white"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+      ></path>
+    </svg>
+  )}
+  <span>{loading ? "Sending..." : "Send Message"}</span>
+</motion.button>
           </div>
         </motion.div>
       </div>

@@ -13,12 +13,12 @@ import WhyChooseUs from "../../components/landing/WhyChooseUs";
 const UserHome = () => {
   return (<>
     <UserNav/>
-    <LandHero/>
+    <LandHero pannel="user" />
     <HowItWork/>
     <OurMission/>
     <WhyChooseUs/>
     <Testimonials/>
-    <Footer/>
+   <Footer panelType="user"/>
     </>
   )
 }

@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   User, MapPin, Phone, Mail, Edit, Camera, Save, X, Loader2, 
   Wrench, DollarSign, Clock, Star, Navigation, Plus, 
-  ToggleLeft, ToggleRight, FileText
+  ToggleLeft, ToggleRight, FileText, AlertCircle,Home
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 import type { RootState } from '../../store/store';
 import { updateUserProfile } from '../../store/authSlice';
 import axiosInstance from '../../api/axiosInstance';
@@ -38,13 +39,19 @@ const EditWorkerProfile = () => {
   const [dataFetching, setDataFetching] = useState(false);
   const [newSkill, setNewSkill] = useState('');
 
+  // Location-specific states
+  const [locationQuery, setLocationQuery] = useState('');
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const [coordinates, setCoordinates] = useState(null);
+
   // Predefined skills for suggestions
   const suggestedSkills = [
     'plumbing', 'electrical', 'carpentry', 'painting', 'cleaning',
     'gardening', 'handyman', 'appliance repair', 'hvac', 'roofing',
     'flooring', 'tiling', 'welding', 'masonry', 'locksmith'
   ];
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
     if (uid && !hasFetched) {
@@ -68,7 +75,8 @@ const EditWorkerProfile = () => {
       const toastId = toast.loading('Loading profile data...');
       const res = await axiosInstance.get(`${WorkerApiRoutes.GET_WORKER_PROFILE.path}/${uid}`);
       const data = res.data;
-      setWorkerData({
+      
+      const profileData = {
         name: data.name || '',
         email: data.email || '',
         phone: data.phone || '',
@@ -80,10 +88,24 @@ const EditWorkerProfile = () => {
         charge: data.charge || 0,
         isAvailable: data.isAvailable || true,
         maxDistance: data.maxDistance || 20,
-        location: data.location || { coordinates: [0, 0] },
+        location: data.location || { type: 'Point', coordinates: [0, 0] },
         averageRating: data.averageRating || 0,
         totalRatings: data.totalRatings || 0
-      });
+      };
+
+      setWorkerData(profileData);
+      
+      // Set location query to address if available
+      if (data.address) {
+        setLocationQuery(data.address);
+      }
+      
+      // Set coordinates if available
+      if (data.location && data.location.coordinates && 
+          (data.location.coordinates[0] !== 0 || data.location.coordinates[1] !== 0)) {
+        setCoordinates(data.location.coordinates);
+      }
+      
       toast.dismiss(toastId);
     } catch (error) {
       toast.error('Failed to load profile data.');
@@ -91,6 +113,179 @@ const EditWorkerProfile = () => {
       setProfileLoading(false);
       setDataFetching(false);
     }
+  };
+
+  // Reverse geocoding function
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const res = await axios.get(`https://nominatim.openstreetmap.org/reverse`, {
+        params: {
+          lat: lat,
+          lon: lng,
+          format: 'json',
+          addressdetails: 1,
+          zoom: 14,
+        },
+        headers: {
+          'User-Agent': 'WorkerSearchApp/1.0'
+        }
+      });
+      
+      if (res.data && res.data.address) {
+        const addr = res.data.address;
+        let address = '';
+        
+        if (addr.suburb || addr.neighbourhood || addr.residential) {
+          address += (addr.suburb || addr.neighbourhood || addr.residential) + ', ';
+        }
+        if (addr.city || addr.town || addr.village) {
+          address += (addr.city || addr.town || addr.village) + ', ';
+        }
+        if (addr.state) {
+          address += addr.state + ', ';
+        }
+        if (addr.country) {
+          address += addr.country;
+        }
+        
+        return address || res.data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      }
+
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    } catch (error) {
+      console.error('Reverse geocoding failed:', error);
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+  };
+
+  // Geocode location function
+  const geocodeLocation = async (locationInput) => {
+    if (!locationInput?.trim()) return null;
+    
+    try {
+      setLocationError('');
+      
+      const res = await axios.get(`https://nominatim.openstreetmap.org/search`, {
+        params: {
+          q: locationInput.trim(),
+          format: 'json',
+          limit: 1,
+          addressdetails: 1,
+        },
+        headers: {
+          'User-Agent': 'WorkerSearchApp/1.0'
+        }
+      });
+      
+      if (res.data && res.data.length > 0) {
+        const result = res.data[0];
+        const newCoordinates = [parseFloat(result.lon), parseFloat(result.lat)];
+        
+        try {
+          const formattedAddress = await reverseGeocode(newCoordinates[1], newCoordinates[0]);
+          return {
+            coordinates: newCoordinates,
+            address: formattedAddress
+          };
+        } catch (error) {
+          return {
+            coordinates: newCoordinates,
+            address: locationInput.trim()
+          };
+        }
+      } else {
+        setLocationError('Location not found. Please try a different location or be more specific.');
+        return null;
+      }
+    } catch (error) {
+      console.error('Geocoding failed:', error);
+      setLocationError('Failed to find location. Please check your internet connection and try again.');
+      return null;
+    }
+  };
+
+  // Detect current location
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation not supported');
+      return;
+    }
+
+    setIsLoadingLocation(true);
+    setLocationError('');
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        const newCoordinates = [longitude, latitude];
+        
+        try {
+          setLocationQuery(`Locating... ${latitude.toFixed(2)}, ${longitude.toFixed(2)}`);
+          const address = await reverseGeocode(latitude, longitude);
+          setLocationQuery(address);
+          setCoordinates(newCoordinates);
+          
+          // Update edit form location coordinates only
+          if (isEditModalOpen) {
+            setEditForm(prev => ({
+              ...prev,
+              location: {
+                type: 'Point',
+                coordinates: newCoordinates
+              }
+            }));
+          }
+          
+          toast.success('Location detected successfully');
+        } catch (error) {
+          console.error('Reverse geocoding failed:', error);
+          const fallbackLocation = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+          setLocationQuery(fallbackLocation);
+          setCoordinates(newCoordinates);
+          
+          if (isEditModalOpen) {
+            setEditForm(prev => ({
+              ...prev,
+              location: {
+                type: 'Point',
+                coordinates: newCoordinates
+              }
+            }));
+          }
+          
+          toast.success('Location detected successfully');
+        }
+        
+        setIsLoadingLocation(false);
+      },
+      (error) => {
+        setIsLoadingLocation(false);
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setLocationError('Location access denied. Please enter your location manually.');
+            toast.error('Location access denied please enable location ');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setLocationError('Location information unavailable. Please enter your location manually.');
+            toast.error('Location unavailable');
+            break;
+          case error.TIMEOUT:
+            setLocationError('Location request timed out. Please enter your location manually.');
+            toast.error('Location request timed out');
+            break;
+          default:
+            setLocationError('Location detection failed. Please enter your location manually.');
+            toast.error('Location detection failed');
+            break;
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000
+      }
+    );
   };
 
   const openEditModal = () => {
@@ -106,9 +301,12 @@ const EditWorkerProfile = () => {
       charge: workerData.charge || 0,
       isAvailable: workerData.isAvailable || true,
       maxDistance: workerData.maxDistance || 20,
-      location: workerData.location || { coordinates: [0, 0] }
+      location: workerData.location || { type: 'Point', coordinates: [0, 0] }
     });
     setIsEditModalOpen(true);
+    
+    // Reset location states when opening modal
+    setLocationError('');
   };
 
   const closeEditModal = () => {
@@ -117,6 +315,7 @@ const EditWorkerProfile = () => {
     setShowPasswordModal(false);
     setCurrentPassword('');
     setNewSkill('');
+    setLocationError('');
     toast.dismiss();
   };
 
@@ -128,6 +327,39 @@ const EditWorkerProfile = () => {
       setEditForm(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
     } else {
       setEditForm(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  // Handle location input change
+  const handleLocationInputChange = (e) => {
+    const value = e.target.value;
+    setLocationQuery(value);
+    setLocationError('');
+  };
+
+  // Handle location geocoding on blur or enter
+  const handleLocationBlur = async () => {
+    if (locationQuery?.trim()) {
+      setIsLoadingLocation(true);
+      const result = await geocodeLocation(locationQuery);
+      if (result) {
+        setCoordinates(result.coordinates);
+        setLocationQuery(result.address);
+        setEditForm(prev => ({
+          ...prev,
+          location: {
+            type: 'Point',
+            coordinates: result.coordinates
+          }
+        }));
+      }
+      setIsLoadingLocation(false);
+    }
+  };
+
+  const handleLocationKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleLocationBlur();
     }
   };
 
@@ -216,6 +448,23 @@ const EditWorkerProfile = () => {
     if (editForm.experience < 0) return toast.error('Experience cannot be negative');
     if (editForm.maxDistance < 1 || editForm.maxDistance > 100) return toast.error('Max distance must be between 1-100 km');
     
+    // If location is provided but no coordinates, try to geocode
+    if (locationQuery?.trim() && (!editForm.location?.coordinates || 
+        (editForm.location.coordinates[0] === 0 && editForm.location.coordinates[1] === 0))) {
+      setIsLoadingLocation(true);
+      const result = await geocodeLocation(locationQuery);
+      if (result) {
+        setEditForm(prev => ({
+          ...prev,
+          location: {
+            type: 'Point',
+            coordinates: result.coordinates
+          }
+        }));
+      }
+      setIsLoadingLocation(false);
+    }
+    
     if (editForm.email !== user.email) {
       setShowPasswordModal(true);
       return;
@@ -260,7 +509,7 @@ const handleEmailUpdate = async () => {
 
     setShowPasswordModal(false);
     setCurrentPassword('');
-  } catch (error: any) {
+  } catch (error) {
     console.error('Email update error:', error);
     console.error('Error code:', error.code);
     console.error('Error message:', error.message);
@@ -299,7 +548,6 @@ const handleEmailUpdate = async () => {
   }
 };
 
-
   const saveProfile = async (toastId = null, successMsg = 'Profile updated successfully!') => {
     try {
       if (!toastId) toastId = toast.loading('Saving profile changes...');
@@ -332,6 +580,17 @@ const handleEmailUpdate = async () => {
           ...prev,
           ...editForm
         }));
+        
+        // Update location query with the new address
+        if (editForm.address) {
+          setLocationQuery(editForm.address);
+        }
+        
+        // Update coordinates
+        if (editForm.location?.coordinates) {
+          setCoordinates(editForm.location.coordinates);
+        }
+        
         closeEditModal();
         toast.success(successMsg, { id: toastId });
       }
@@ -432,11 +691,25 @@ const handleEmailUpdate = async () => {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-3">
-                <MapPin className="w-5 h-5 text-gray-400" />
+              <div className="flex items-start space-x-3">
+               <Home className="w-5 h-5 text-gray-400 mt-1" />
                 <div>
                   <p className="text-sm text-gray-500">Address</p>
-                  <p className="font-medium text-gray-800">{workerData.address || 'Not provided'}</p>
+                  <p className="font-medium text-gray-800">
+                    {locationQuery || workerData.address || 'Location not set'}
+                  </p>
+
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <MapPin className="w-5 h-5 text-gray-400 mt-1" />
+                <div>
+                  <p className="text-sm text-gray-500">Current Location</p>
+                  {coordinates && coordinates[0] !== 0 && coordinates[1] !== 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Coordinates: {coordinates[1]?.toFixed(6)}, {coordinates[0]?.toFixed(6)}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -524,7 +797,7 @@ const handleEmailUpdate = async () => {
 
         {/* Edit Profile Modal */}
         {isEditModalOpen && !showPasswordModal && (
-          <div className="fixed inset-0  bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b">
                 <h3 className="text-lg font-semibold text-gray-800">Edit Worker Profile</h3>
@@ -612,15 +885,19 @@ const handleEmailUpdate = async () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={editForm.phone || ''}
-                        onChange={handleInputChange}
-                        disabled={loading}
-                        placeholder="Enter your phone number"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
+                     <input
+  type="tel"
+  name="phone"
+  value={editForm.phone || ''}
+  onChange={handleInputChange}
+  disabled={loading}
+  placeholder="Enter your phone number"
+  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+  pattern="[0-9]*"
+  maxLength={10} // or your desired max digits
+  autoComplete="tel"
+/>
+
                     </div>
 
                     <div>
@@ -631,9 +908,83 @@ const handleEmailUpdate = async () => {
                         onChange={handleInputChange}
                         disabled={loading}
                         rows={3}
-                        placeholder="Enter your address"
+                        placeholder="Enter your complete address"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                       />
+                    </div>
+
+                    {/* Location Input for GPS Coordinates */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Current Location <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                          type="text"
+                          value={locationQuery}
+                          onChange={handleLocationInputChange}
+                          onBlur={handleLocationBlur}
+                          onPress={handleLocationKeyPress}
+                          disabled={loading || isLoadingLocation}
+                          placeholder="Enter city, area or location for GPS coordinates"
+                          className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        {isLoadingLocation && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-green-500 border-t-transparent"></div>
+                          </div>
+                        )}
+                        {!isLoadingLocation && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
+                            {locationQuery && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setLocationQuery('');
+                                  setCoordinates(null);
+                                  setLocationError('');
+                                  setEditForm(prev => ({ ...prev, location: { type: 'Point', coordinates: [0, 0] } }));
+                                }}
+                                className="text-gray-400 hover:text-red-600 transition-colors"
+                                title="Clear location"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={detectLocation}
+                              disabled={loading}
+                              className="text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50"
+                              title="Detect my current location"
+                            >
+                              <Navigation className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Location Error */}
+                      {locationError && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                          <p className="text-sm text-red-800">{locationError}</p>
+                        </div>
+                      )}
+                      
+                      {/* Location Success Info */}
+                      {coordinates && coordinates[0] !== 0 && coordinates[1] !== 0 && !locationError && (
+                        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                          <p className="text-sm text-green-800">
+                            ✓ Location verified - Coordinates: {coordinates[1]?.toFixed(6)}, {coordinates[0]?.toFixed(6)}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-gray-500 mt-1">
+                        This location is used for GPS coordinates to match you with nearby customers
+                      </p>
                     </div>
                   </div>
 
@@ -820,13 +1171,13 @@ const handleEmailUpdate = async () => {
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={loading || imageUploading}
+                  disabled={loading || imageUploading || isLoadingLocation}
                   className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? (
+                  {loading || isLoadingLocation ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Saving...</span>
+                      <span>{isLoadingLocation ? 'Processing Location...' : 'Saving...'}</span>
                     </>
                   ) : (
                     <>
@@ -842,7 +1193,7 @@ const handleEmailUpdate = async () => {
 
         {/* Password Confirmation Modal for Email Update */}
         {showPasswordModal && (
-          <div className="fixed inset-0  bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
               <div className="flex items-center justify-between p-6 border-b">
                 <h3 className="text-lg font-semibold text-gray-800">Confirm Password</h3>

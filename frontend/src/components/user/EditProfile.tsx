@@ -429,15 +429,19 @@ const EditProfile = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={editForm.phone || ''}
-                    onChange={handleInputChange}
-                    disabled={loading}
-                    placeholder="Enter your phone number"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
+                <input
+  type="tel"
+  name="phone"
+  value={editForm.phone || ''}
+  onChange={handleInputChange}
+  disabled={loading}
+  placeholder="Enter your phone number"
+  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+  pattern="[0-9]*"
+  maxLength={10} // or your desired max digits
+  autoComplete="tel"
+/>
+
                 </div>
 
                 <div>

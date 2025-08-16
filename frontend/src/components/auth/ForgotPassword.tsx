@@ -30,7 +30,6 @@ const ForgotPassword = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-green-50 via-white to-green-50 relative overflow-hidden">
-      {/* Bubble animation */}
        {loading && <Loader />}
       <motion.div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
         {[...Array(10)].map((_, i) => (

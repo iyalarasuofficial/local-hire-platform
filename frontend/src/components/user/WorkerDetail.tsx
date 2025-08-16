@@ -16,6 +16,7 @@ import { useParams } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import Booking from './Booking';
 import Loader from '../common/Loader';
+import workerProfileImage from "../../assets/worker.png"
 
 interface Worker {
   _id: string;
@@ -292,19 +293,13 @@ const WorkerDetail: React.FC = () => {
                   className="flex-shrink-0"
                 >
                   <div className="w-32 h-32 rounded-full border-4 border-gray-200 shadow-lg overflow-hidden bg-gray-100">
-                    {worker.profilePic && !imageError ? (
-                      <img
-                        src={worker.profilePic}
-                        alt={`${worker.name}'s profile`}
-                        className="w-full h-full object-cover"
-                        onError={handleImageError}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-400 to-green-600">
-                        <User className="w-16 h-16 text-white" />
-                      </div>
-                    )}
-                  </div>
+  <img
+    src={imageError || !worker.profilePic ? workerProfileImage : worker.profilePic}
+    alt={`${worker.name}'s profile`}
+    className="w-full h-full object-cover"
+    onError={handleImageError}
+  />
+</div>
                 </motion.div>
 
                 {/* Worker Info */}

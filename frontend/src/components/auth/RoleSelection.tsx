@@ -14,57 +14,26 @@ const RoleSelection: React.FC = () => {
   const dispatch = useDispatch();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   
-
   // Get temp user data from localStorage
   const userData = JSON.parse(localStorage.getItem('tempUser') || 'null');
 
-  const handleRoleSelect = (role: string) => {
-    setSelectedRole(role);
+  const handleSubmit = async () => {
+    if (!selectedRole) return toast.error('Please select a role');
 
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported by your browser.');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const coords = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-
-        setLocation(coords);
-    
-        toast.success('Location captured');
-
-        // ✅ Send to backend immediately after capturing location
-        await submitWithLocation(role, coords);
-      },
-      () => {
-        toast.error('Failed to get your location');
-      }
-    );
-  };
-
-  const submitWithLocation = async (role: string, coords: { lat: number; lng: number }) => {
     if (!userData) return toast.error('Session expired. Please sign up again.');
 
     setLoading(true);
     try {
       const apiPath =
-        role === 'user' ? ApiRoutes.USER_SIGNUP.path : ApiRoutes.WORKER_SIGNUP.path;
+        selectedRole === 'user' ? ApiRoutes.USER_SIGNUP.path : ApiRoutes.WORKER_SIGNUP.path;
    
-
-      await axiosInstance.post(apiPath, {
+      const payload = {
         ...userData,
-        role,
-        location: {
-          type: 'Point',
-          coordinates: [coords.lng, coords.lat], // GeoJSON format: [longitude, latitude]
-        },
-      });
+        role: selectedRole,
+      };
+
+      const response = await axiosInstance.post(apiPath, payload);
 
       dispatch(
         setUser({
@@ -73,26 +42,19 @@ const RoleSelection: React.FC = () => {
           name: userData.name || '',
           phone: userData.phone || '',
           profilePic: '', 
-          role,
+          role: selectedRole,
         })
       );
 
       toast.success('Registration completed!');
       localStorage.removeItem('tempUser');
 
-      navigate(role === 'worker' ? '/dashboard/worker' : '/dashboard/user');
+      navigate(selectedRole === 'worker' ? '/dashboard/worker' : '/dashboard/user');
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Something went wrong. Please try again.');
-      setLoading(false);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSubmit = () => {
-    if (!selectedRole) return toast.error('Please select a role');
-    toast('Fetching location...');
-    handleRoleSelect(selectedRole);
   };
 
   return (

@@ -1,9 +1,10 @@
-import { Link } from "react-router-dom";
-import Tools from "../../assets/Tools.png";
+import React from 'react';
+import { Wrench, Users, Star, TrendingUp, CheckCircle, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
-const LandHero = ({pannel}) => {
+const WorkerPanelHero = () => {
   return (
-    <div className="relative w-full bg-gradient-to-br from-green-50 via-white to-gray-50 py-5 px-6 overflow-hidden">
+    <div className="relative w-full bg-gradient-to-br from-green-50 via-white to-gray-50 py-16 px-6 overflow-hidden">
       {/* Background floating bubbles */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-16 left-12 w-64 h-64 bg-green-200 rounded-full blur-3xl opacity-20 animate-pulse" />
@@ -52,58 +53,64 @@ const LandHero = ({pannel}) => {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between">
-        {/* Left Content */}
-        <div className="md:w-1/2 space-y-6">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-800 leading-tight animate-fade-in-up">
-            Find Trusted Local Workers <br />
-            <span className="text-green-600">Near You Instantly</span>
-          </h1>
-          <p className="text-gray-500 text-lg animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-            Plumbers, Electricians, Carpenters & more — book verified professionals near your area.
-          </p>
-          <div className="flex gap-4">
-  {pannel === "user" ? (
-    <>
-      <Link to="/dashboard/user/find-worker">
-        <button className="bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 transition">
-          Find a Worker
-        </button>
-      </Link>
+      <div className="relative z-10 max-w-6xl mx-auto text-center">
+        <span className="inline-block px-6 py-2 bg-green-100 text-green-700 rounded-full text-sm font-semibold border border-green-200 shadow animate-fade-in-up">
+          🔧 Professional Dashboard
+        </span>
 
-      <Link to="/dashboard/user/find-worker">
-        <button className="border border-green-600 text-green-600 px-6 py-3 rounded-md hover:bg-green-100 transition">
-          Post a Job
-        </button>
-      </Link>
-    </>
-  ) : (
-     <>
-      <Link to="/login">
-        <button className="bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 transition">
-          Find a Worker
-        </button>
-      </Link>
+        <h1 className="text-5xl md:text-6xl font-bold text-gray-800 leading-tight mt-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+          Grow Your Business with <span className="bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">Verified Clients</span>
+        </h1>
 
-      <Link to="/login">
-        <button className="border border-green-600 text-green-600 px-6 py-3 rounded-md hover:bg-green-100 transition">
-          Post a Job
-        </button>
-      </Link>
-    </>
-  )}
-</div>
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto mt-4 mb-8 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+          Join thousands of skilled professionals who trust our platform to connect with quality clients, manage their business, and increase their earnings.
+        </p>
 
-
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16 animate-fade-in-up" style={{ animationDelay: '0.6s' }}>
+          <Link to="/dashboard/worker/work-orders">
+          <button className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 group">
+            Start Earning Today
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
+          </button>
+          </Link>
+          <button className="px-8 py-4 border-2 border-green-600 text-green-600 font-semibold rounded-lg hover:bg-green-50 transition-colors duration-300">
+            Learn More
+          </button>
         </div>
 
-        {/* Right Image */}
-        <div className="md:w-1/2 mt-10 md:mt-0 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
-          <img
-            src={Tools}
-            alt="Worker Illustration"
-            className="w-[500px] h-[500px] drop-shadow-xl"
-          />
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-fade-in-up" style={{ animationDelay: '0.8s' }}>
+          <div className="text-center p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-white/40 shadow-lg">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="text-2xl font-bold text-gray-800 mb-2">50K+</div>
+            <div className="text-gray-600 text-sm">Active Clients</div>
+          </div>
+
+          <div className="text-center p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-white/40 shadow-lg">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Star className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="text-2xl font-bold text-gray-800 mb-2">4.9/5</div>
+            <div className="text-gray-600 text-sm">Average Rating</div>
+          </div>
+
+          <div className="text-center p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-white/40 shadow-lg">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <TrendingUp className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="text-2xl font-bold text-gray-800 mb-2">₹2.5L+</div>
+            <div className="text-gray-600 text-sm">Avg Monthly Earnings</div>
+          </div>
+
+          <div className="text-center p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-white/40 shadow-lg">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="text-2xl font-bold text-gray-800 mb-2">98%</div>
+            <div className="text-gray-600 text-sm">Job Completion</div>
+          </div>
         </div>
       </div>
 
@@ -188,4 +195,4 @@ const LandHero = ({pannel}) => {
   );
 };
 
-export default LandHero;
+export default WorkerPanelHero;

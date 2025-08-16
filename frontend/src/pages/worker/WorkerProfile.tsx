@@ -8,7 +8,7 @@ const workerProfile = () => {
     <>
     <WorkerNav/>
     <EditWorkerProfile/>
-    <Footer/>
+   <Footer panelType="worker"/>
     </>
   )
 }

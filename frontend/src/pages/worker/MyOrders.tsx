@@ -8,7 +8,7 @@ const MyOrders = () => {
   <>
   <WorkerNav/>
   <WorkerBookings/>
-  <Footer/>
+  <Footer panelType="worker"/>
   </>
   )
 }

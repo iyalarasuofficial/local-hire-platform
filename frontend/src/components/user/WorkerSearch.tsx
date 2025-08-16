@@ -9,10 +9,13 @@ import ApiRoutes from '../../api/apiRoutes';
 import toast from 'react-hot-toast';
 import { useNavigate } from "react-router-dom";
 import Booking from './Booking';
-// interfaces/Worker.ts
+import workerProfileImage from "../../assets/worker.png";
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../../firebase_auth/firebase';
+// Interfaces (updated distance to match backend)
 export interface WorkerLocation {
   type: 'Point';
-  coordinates: [number, number]; // [longitude, latitude]
+  coordinates: [number, number];
 }
 
 export interface Worker {
@@ -36,15 +39,13 @@ export interface Worker {
   totalRatings: number;
   createdAt: string;
   updatedAt: string;
-  
-  // Virtual fields (computed on backend)
   verified?: boolean;
   formattedCharge?: string;
-  
-  // Populated when doing nearby search
-  distance?: number;
-  distanceMiles?: number;
-  distanceUnit?: string;
+  distance?: {
+    km: number;
+    miles: number;
+    meters: number;
+  };
 }
 
 export interface WorkerSearchParams {
@@ -52,6 +53,7 @@ export interface WorkerSearchParams {
   categories?: string;
   lat?: number;
   lng?: number;
+  locationString?: string; // Added for address fallback
   radius?: number;
   minRating?: number;
   maxCharge?: number;
@@ -69,7 +71,6 @@ export interface WorkerSearchResponse {
   hasPrev: boolean;
 }
 
-// For booking modal - simplified interface
 export interface BookingWorkerData {
   id: string;
   name: string;
@@ -96,13 +97,33 @@ const WorkerSearch: React.FC = () => {
   const [locationError, setLocationError] = useState<string>('');
   const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
   
+  // Auth state
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  
   // Booking modal state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [selectedWorker, setSelectedWorker] = useState<WorkerData | null>(null);
+  const [selectedWorker, setSelectedWorker] = useState<BookingWorkerData | null>(null);
 
   const categories = ['plumbing', 'electrical', 'cleaning', 'handyman', 'painting'];
 
+  // Monitor Firebase auth state
+  useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (user) {
+      setIsAuthReady(true);
+    } else {
+      setIsAuthReady(false);
+      toast.error("Please log in to access worker search");
+      navigate('/login');
+    }
+  });
+  return () => unsubscribe();
+}, [navigate]);
+
+  // Fetch default workers (only when auth is ready)
   const fetchDefaultWorkers = async () => {
+    if (!isAuthReady) return; // Skip if auth not ready
+
     try {
       setIsSearching(true);
       const res = await axiosInstance.get(ApiRoutes.RANDOM_WORKERS.path);
@@ -115,25 +136,30 @@ const WorkerSearch: React.FC = () => {
     } catch (err) {
       console.error("Error fetching default workers:", err);
       setWorkers([]);
+      toast.error("Failed to fetch workers. Please try again.");
     } finally {
       setIsSearching(false);
     }
   };
 
-  // Auto-detect user location on component mount
+  // Fetch default workers when auth is ready
   useEffect(() => {
-    detectUserLocation();
-    fetchDefaultWorkers();
-  }, []);
+    if (isAuthReady) {
+      fetchDefaultWorkers();
+    }
+  }, [isAuthReady]);
 
   // Fetch workers when search parameters change
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchWorkers();
-    }, 300); 
+    if (!isAuthReady) return; // Skip if auth not ready
 
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, selectedCategories, coordinates]);
+    if (searchQuery || selectedCategories.length > 0 || coordinates || locationQuery.trim()) {
+      const timeoutId = setTimeout(() => {
+        fetchWorkers();
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [searchQuery, selectedCategories, coordinates, locationQuery, isAuthReady]);
 
   const detectUserLocation = async () => {
     if (!navigator.geolocation) {
@@ -152,16 +178,9 @@ const WorkerSearch: React.FC = () => {
         
         try {
           setLocationQuery(`Locating... ${latitude.toFixed(2)}, ${longitude.toFixed(2)}`);
-          
           const address = await reverseGeocode(latitude, longitude);
           setLocationQuery(address);
           setHasRequestedLocation(true);
-          
-          console.log('Location detected:', {
-            coordinates: [longitude, latitude],
-            address: address
-          });
-          
         } catch (error) {
           console.error('Reverse geocoding failed:', error);
           setLocationQuery(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
@@ -176,16 +195,16 @@ const WorkerSearch: React.FC = () => {
         
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            setLocationError('Location access denied. You can still search by skill categories.');
+            setLocationError('Location access denied. You can still search by skills or address.');
             break;
           case error.POSITION_UNAVAILABLE:
-            setLocationError('Location information unavailable. You can still search by skill categories.');
+            setLocationError('Location information unavailable. You can still search by skills or address.');
             break;
           case error.TIMEOUT:
-            setLocationError('Location request timed out. You can still search by skill categories.');
+            setLocationError('Location request timed out. You can still search by skills or address.');
             break;
           default:
-            setLocationError('Location detection failed. You can still search by skill categories.');
+            setLocationError('Location detection failed. You can still search by skills or address.');
             break;
         }
       },
@@ -199,7 +218,6 @@ const WorkerSearch: React.FC = () => {
 
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
     try {
-      // Using Nominatim (Free alternative) - no API key required
       const res = await axios.get(`https://nominatim.openstreetmap.org/reverse`, {
         params: {
           lat: lat,
@@ -234,7 +252,6 @@ const WorkerSearch: React.FC = () => {
       }
 
       return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-      
     } catch (error) {
       console.error('Reverse geocoding failed:', error);
       return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
@@ -242,35 +259,36 @@ const WorkerSearch: React.FC = () => {
   };
 
   const fetchWorkers = async () => {
+    if (!isAuthReady) return; // Skip if auth not ready
+
     try {
       setIsSearching(true);
       
-      // Build search parameters
-      const params: any = {};
+      const params: WorkerSearchParams = {};
       
-      // Add skill-based search
       if (searchQuery.trim()) {
         params.search = searchQuery.trim();
       }
       
-      // Add category filters (convert to lowercase to match backend)
       if (selectedCategories.length > 0) {
         params.categories = selectedCategories.map(cat => cat.toLowerCase()).join(',');
       }
       
-      // Add location coordinates for nearby search (if available)
+      if (locationQuery.trim()) {
+        params.locationString = locationQuery.trim(); // Added for address fallback
+      }
+      
       if (coordinates) {
-        params.lat = coordinates[1]; // latitude
-        params.lng = coordinates[0]; // longitude
-        params.radius = 50; // Search within 50km radius
+        params.lat = coordinates[1];
+        params.lng = coordinates[0];
+        params.radius = 50;
       }
 
-      // Use the appropriate endpoint
+      // Use nearby endpoint regardless, as it handles both cases now
       const endpoint = ApiRoutes.NEARBY_WORKERS.path;
       const res = await axiosInstance.get(endpoint, { params });
       const data = res.data;
 
-      // Handle different response formats
       if (Array.isArray(data)) {
         setWorkers(data);
       } else if (Array.isArray(data.workers)) {
@@ -284,6 +302,7 @@ const WorkerSearch: React.FC = () => {
     } catch (error) {
       console.error('Error fetching workers:', error);
       setWorkers([]);
+      toast.error("Failed to fetch workers. Please try again.");
     } finally {
       setIsSearching(false);
     }
@@ -296,9 +315,6 @@ const WorkerSearch: React.FC = () => {
       setIsLoadingLocation(true);
       setLocationError('');
       
-      let coordinates = null;
-
-      // Using Nominatim for geocoding
       const res = await axios.get(`https://nominatim.openstreetmap.org/search`, {
         params: {
           q: locationQuery.trim(),
@@ -313,15 +329,12 @@ const WorkerSearch: React.FC = () => {
       
       if (res.data && res.data.length > 0) {
         const result = res.data[0];
-        coordinates = [parseFloat(result.lon), parseFloat(result.lat)];
-      }
-
-      if (coordinates) {
-        setCoordinates(coordinates);
+        const newCoordinates: [number, number] = [parseFloat(result.lon), parseFloat(result.lat)];
+        setCoordinates(newCoordinates);
         setLocationError('');
         
         try {
-          const formattedAddress = await reverseGeocode(coordinates[1], coordinates[0]);
+          const formattedAddress = await reverseGeocode(newCoordinates[1], newCoordinates[0]);
           setLocationQuery(formattedAddress);
         } catch (error) {
           // Keep the original query if reverse geocoding fails
@@ -359,11 +372,13 @@ const WorkerSearch: React.FC = () => {
     detectUserLocation();
   };
 
-  const clearLocationAndSearch = () => {
+  const clearAllFilters = () => {
+    setSearchQuery('');
     setLocationQuery('');
     setCoordinates(null);
+    setSelectedCategories([]);
     setLocationError('');
-    fetchWorkers(); // This will now search without location
+    fetchDefaultWorkers();
   };
 
   const getFilteredWorkersCount = () => {
@@ -380,6 +395,8 @@ const WorkerSearch: React.FC = () => {
     }
     if (locationQuery.trim() && coordinates) {
       summary += `near ${locationQuery}`;
+    } else if (locationQuery.trim()) {
+      summary += `in ${locationQuery} (address match)`;
     } else if (selectedCategories.length > 0 || searchQuery.trim()) {
       summary += '(all locations)';
     }
@@ -387,12 +404,12 @@ const WorkerSearch: React.FC = () => {
   };
 
   const formatDistance = (worker: Worker) => {
-    if (!worker.distance) return null;
+    if (!worker.distance?.km) return null;
     
     return (
       <div className="flex items-center gap-1 text-gray-500">
         <MapPin className="w-4 h-4" />
-        <span>{worker.distance.toFixed(1)} km {worker.distanceMiles ? `(${worker.distanceMiles.toFixed(1)} miles)` : ''} away</span>
+        <span>{worker.distance.km.toFixed(1)} km {worker.distance.miles ? `(${worker.distance.miles.toFixed(1)} miles)` : ''} away</span>
       </div>
     );
   };
@@ -400,11 +417,10 @@ const WorkerSearch: React.FC = () => {
   const handleBookNow = (worker: Worker) => {
     if (!worker) return;
     
-    // Prepare worker data for booking component
-    const workerData: WorkerData = {
+    const workerData: BookingWorkerData = {
       id: worker.uid,
       name: worker.name,
-      image: worker.profilePic || '',
+      image: worker.profilePic || workerProfileImage,
       category: worker.role || 'Professional',
       rate: `₹${worker.charge}/hr`,
       phone: worker.phone || '',
@@ -421,24 +437,23 @@ const WorkerSearch: React.FC = () => {
   };
 
   const handleViewProfile = (worker: Worker) => {
-    console.log("Viewing profile for worker:", worker);
     navigate(`/dashboard/user/find-worker/workers/detail/${worker.uid}`);
   };
 
   return (
     <>
       <div className="min-h-screen bg-gray-50 pb-12">
-        {/* Search Header */}
+
         <div className="bg-white shadow-sm border-b">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            {/* Main Search Bar */}
+       
             <div className="flex flex-col lg:flex-row gap-4">
-              {/* Skills Search */}
+    
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="text"
-                  placeholder="Search for skills (e.g. plumber, electrician)"
+                  placeholder="Search for skills or address (e.g. plumber, electrician, Mumbai)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-green-300 focus:border-green-300 outline-none"
@@ -475,7 +490,11 @@ const WorkerSearch: React.FC = () => {
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1">
                     {locationQuery && (
                       <button
-                        onClick={clearLocationAndSearch}
+                        onClick={() => {
+                          setLocationQuery('');
+                          setCoordinates(null);
+                          setLocationError('');
+                        }}
                         className="text-gray-400 hover:text-red-600 transition-colors"
                         title="Clear location"
                       >
@@ -502,11 +521,22 @@ const WorkerSearch: React.FC = () => {
                     fetchWorkers();
                   }
                 }}
-                disabled={isLoadingLocation || isSearching}
+                disabled={isLoadingLocation || isSearching || !isAuthReady}
                 className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
               >
-                <Filter size={18} /> 
+                <Filter size={18} />
                 {isLoadingLocation || isSearching ? 'Searching...' : 'Search'}
+              </button>
+            </div>
+
+            {/* Clear All Filters Button */}
+            <div className="mt-4">
+              <button
+                onClick={clearAllFilters}
+                disabled={!isAuthReady}
+                className="px-4 py-2 text-green-600 hover:text-green-700 font-medium focus:outline-none focus:underline disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Clear All Filters
               </button>
             </div>
 
@@ -516,12 +546,12 @@ const WorkerSearch: React.FC = () => {
                 <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm">
                   <p className="text-blue-800">{locationError}</p>
-                  <p className="text-blue-600 mt-1">Don't worry! You can still search by skills and categories without location.</p>
+                  <p className="text-blue-600 mt-1">Don't worry! You can still search by skills or address.</p>
                 </div>
               </div>
             )}
 
-            {/* Category Filters */}
+       
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-700 mb-3">Filter by Category:</h3>
               <div className="flex flex-wrap gap-3">
@@ -579,12 +609,9 @@ const WorkerSearch: React.FC = () => {
                   Try adjusting your search terms or selecting different categories.
                 </p>
                 <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedCategories([]);
-                    fetchDefaultWorkers();
-                  }}
-                  className="px-4 py-2 text-green-600 hover:text-green-700 font-medium focus:outline-none focus:underline"
+                  onClick={clearAllFilters}
+                  disabled={!isAuthReady}
+                  className="px-4 py-2 text-green-600 hover:text-green-700 font-medium focus:outline-none focus:underline disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Clear all filters
                 </button>
@@ -599,15 +626,14 @@ const WorkerSearch: React.FC = () => {
                   className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-green-200 transition-all"
                 >
                   <div className="flex flex-col lg:flex-row gap-6">
-                    {/* Profile Picture */}
                     <div className="flex-shrink-0 relative">
                       <img
-                        src={worker.profilePic || '/api/placeholder/96/96'}
+                        src={worker.profilePic || workerProfileImage}
                         alt={`${worker.name}'s profile`}
                         className="w-20 h-20 lg:w-24 lg:h-24 rounded-2xl object-cover"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
-                          target.src = '/api/placeholder/96/96';
+                          target.src = workerProfileImage;
                         }}
                       />
                       {worker.verified && (
@@ -619,14 +645,12 @@ const WorkerSearch: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Worker Details */}
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-col lg:flex-row justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <h3 className="text-xl font-semibold text-gray-900 mb-1 truncate">{worker.name}</h3>
                           <p className="text-gray-600 mb-2 line-clamp-2">{worker.bio || 'Experienced professional'}</p>
                           
-                          {/* Skills/Categories */}
                           {worker.skills && worker.skills.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-3">
                               {worker.skills.slice(0, 3).map((skill, index) => (
@@ -652,11 +676,9 @@ const WorkerSearch: React.FC = () => {
                               <span className="text-gray-500"> • {worker.totalRatings || 0} reviews</span>
                             </div>
                             
-                            {/* Distance Display */}
-                            {worker.distance && formatDistance(worker)}
+                            {worker.distance?.km && formatDistance(worker)}
                             
-                            {/* Address (only show if no distance available) */}
-                            {!worker.distance && worker.address && (
+                            {!worker.distance?.km && worker.address && (
                               <div className="flex items-center gap-1 text-gray-500 min-w-0">
                                 <MapPin className="w-4 h-4 flex-shrink-0" />
                                 <span className="truncate">{worker.address}</span>
@@ -670,15 +692,14 @@ const WorkerSearch: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Action Buttons */}
                         <div className="flex flex-col sm:flex-row lg:flex-col gap-3 flex-shrink-0">
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => handleBookNow(worker)}
-                            disabled={worker.isAvailable === false}
+                            disabled={worker.isAvailable === false || !isAuthReady}
                             className={`px-6 py-2 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                              worker.isAvailable !== false
+                              worker.isAvailable !== false && isAuthReady
                                 ? 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
                                 : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                             }`}
@@ -705,7 +726,6 @@ const WorkerSearch: React.FC = () => {
         </div>
       </div>
 
-      {/* Booking Modal */}
       {selectedWorker && (
         <Booking 
           isOpen={isBookingOpen}

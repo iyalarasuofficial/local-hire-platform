@@ -7,6 +7,8 @@ import ReviewModal from '../user/ReviewModel';
 import BookingDetailsModal from './BookingDetailsModal';
 import Loader from '../common/Loader';
 import toast from 'react-hot-toast';
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../firebase_auth/firebase"
 
 interface RootState {
   auth: {
@@ -64,12 +66,23 @@ export default function UserBookings() {
   const [reviewComment, setReviewComment] = useState('');
   const [activeTab, setActiveTab] = useState('all');
 
-  const auth = useSelector((state: RootState) => state.auth);
-  const userId = auth?.uid;
+const authState = useSelector((state: RootState) => state.auth);
+  const userId = authState?.uid;
+
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    fetchBookings();
-  }, [userId]);
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      setAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (authReady && auth.currentUser && userId) {
+      fetchBookings();
+    }
+  }, [authReady, userId]);
 
   const fetchBookings = async () => {
     if (!userId) return;
@@ -321,7 +334,7 @@ export default function UserBookings() {
                               <MessageCircle className="h-4 w-4 mr-1" /> Contact
                             </button>
                             <button onClick={() => handleMarkCompleted(booking._id)} className="flex items-center px-3 py-2 text-sm text-green-600 hover:bg-green-50 rounded-lg">
-                              <CheckCircle className="h-4 w-4 mr-1" /> Work Completed
+                              <CheckCircle className="h-4 w-4 mr-1" /> Mark Completed and Paid
                             </button>
                           </>
                         )}

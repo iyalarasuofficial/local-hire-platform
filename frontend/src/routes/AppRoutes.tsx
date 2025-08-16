@@ -17,14 +17,12 @@ const AppRoutes = () => {
 
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/about" element={<RedirectIfAuthenticated><About /></RedirectIfAuthenticated>} />
+        <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/login" element={<SignIn />} />
-        <Route path="/register" element={<SignUp />} />
+        <Route path="/login" element={<RedirectIfAuthenticated><SignIn /></RedirectIfAuthenticated>} />
+        <Route path="/register" element={<RedirectIfAuthenticated><SignUp /><ForgotPasswordPage/></RedirectIfAuthenticated>} />
         <Route path="/role" element={<Role />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-        {/* Dynamically render user routes */}
         {userroutes.map(({ path, element }, index) => (
           <Route
             key={index}

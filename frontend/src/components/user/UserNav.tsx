@@ -147,13 +147,6 @@ const UserNav = () => {
                         <User className="w-4 h-4" />
                         Profile
                       </Link>
-                      <Link 
-                        to="/settings" 
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsDropdownOpen(false)}
-                      >
-                        Settings
-                      </Link>
                     </div>
                     
                     <div className="border-t border-gray-100 py-1">

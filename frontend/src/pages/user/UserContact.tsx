@@ -10,7 +10,7 @@ const UserContact = () => {
     <UserNav/>
     <ContactHero/>
     <ContactSection/>
-    <Footer/>
+ <Footer panelType="user"/>
     </>
   )
 }

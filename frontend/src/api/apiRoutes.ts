@@ -20,6 +20,8 @@ const ApiRoutes = {
   UPDATE_USER_PROFILE:{path:"api/users/edit-profile",authenticate:true},
 
   COMPLETE_WORK:{path:"api/bookings/user/completed",authenticated:true},
+
+  CONTACT_ADMIN:{path:"api/contact",authenticate:true}
 };
 
 export default ApiRoutes;

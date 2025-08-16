@@ -7,7 +7,7 @@ const Mybookings = () => {
   return (<>
     <UserNav/>
     <UserBookings/>
-    <Footer/>
+  <Footer panelType="user"/>
     </>
   )
 }
