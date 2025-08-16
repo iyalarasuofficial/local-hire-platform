@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { X, AlertCircle, Loader2 } from 'lucide-react';
 import axiosInstance from '../../api/axiosInstance';
 import ApiRoutes from '../../api/apiRoutes';
-import Loader from '../common/Loader';
 
 
 interface ReviewModalProps {

@@ -17,8 +17,11 @@ import Logo from '../common/Logo';
     For Worker Panel: <Footer panelType="worker" />
     For Landing Page: <Footer panelType="landing" /> or <Footer />
 */
+interface FooterProps {
+  panelType: "user" | "worker" | "admin"; // restrict to possible values
+}
 
-function Footer({ panelType }) {
+const Footer: React.FC<FooterProps> = ({ panelType }) => {
   // Quick Links for Landing, User, and Worker panels
   const landingLinks = [
     { name: "Home", href: "/" },
