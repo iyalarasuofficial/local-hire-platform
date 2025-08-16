@@ -2,7 +2,7 @@
 import MyOrders from "../pages/worker/MyOrders";
 import WorkerContact from "../pages/worker/WorkerContact";
 import WorkerHome from "../pages/worker/WorkerHome";
-import WorkerProfile from "../pages/worker/workerProfile";
+import WorkerProfile from "../pages/worker/WorkerProfile";
 const worker_routes=[
     {
     path: "dashboard/worker",
