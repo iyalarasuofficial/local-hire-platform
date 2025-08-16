@@ -1,7 +1,6 @@
 import express from 'express';
 import User from '../models/User.js';
 import Worker from '../models/Worker.js'
-import Admin from "../../backend/models/Admin.js"
 
 const router = express.Router();
 

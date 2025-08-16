@@ -23,28 +23,10 @@ export const registerWorker = async (req, res) => {
   }
 };
 
-// Update availability (online/offline)
-export const updateAvailability = async (req, res) => {
-  try {
-    const { uid } = req.params;
-    const { isAvailable } = req.body;
-
-    const updated = await Worker.findOneAndUpdate(
-      { uid },
-      { isAvailable },
-      { new: true }
-    );
-
-    res.status(200).json(updated);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-};
 
 
 
-// Get worker profile by UID
+
 export const getWorkerProfile = async (req, res) => {
   try {
     const { uid } = req.params;
@@ -60,7 +42,7 @@ export const getWorkerProfile = async (req, res) => {
   }
 };
 
-// Get average rating for the worker
+
 export const getWorkerRating = async (req, res) => {
   try {
     const { uid } = req.params;
@@ -83,7 +65,7 @@ export const getWorkerRating = async (req, res) => {
   }
 };
 
-// Update worker profile
+
 export const updateWorkerProfile = async (req, res) => {
   try {
     const { uid } = req.params;
@@ -102,7 +84,7 @@ export const updateWorkerProfile = async (req, res) => {
       location
     } = req.body;
 
-    // Step 1: Update Firebase email (only if changed)
+
     if (email) {
       try {
         await admin.auth().updateUser(uid, { email });
@@ -115,7 +97,7 @@ export const updateWorkerProfile = async (req, res) => {
       }
     }
 
-    // Step 2: Prepare update object for MongoDB
+
     const updateData = {};
     if (name !== undefined) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone;
@@ -130,7 +112,7 @@ export const updateWorkerProfile = async (req, res) => {
     if (maxDistance !== undefined) updateData.maxDistance = maxDistance;
     if (location !== undefined) updateData.location = location;
 
-    // Step 3: Update MongoDB
+
     const worker = await Worker.findOneAndUpdate({ uid }, updateData, {
       new: true,
       runValidators: true,
@@ -140,7 +122,6 @@ export const updateWorkerProfile = async (req, res) => {
       return res.status(404).json({ message: "Worker not found" });
     }
 
-    // Step 4: Send updated profile
     return res.status(200).json({
       message: "Worker profile updated successfully",
       worker,

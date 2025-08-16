@@ -1,28 +1,17 @@
 import express from "express";
 import {
   registerWorker,
-  updateAvailability,
   getWorkerProfile,
-  getWorkerRating,
   updateWorkerProfile,
 } from "../controllers/workerController.js";
-
+import  {verifyFirebaseToken} from "../middleware/firebaseAuth.js"
 const router = express.Router();
 
-// 📌 Register a new worker
-router.post("/register", registerWorker);
+router.post("/register",registerWorker);
+
+router.get("/:uid",verifyFirebaseToken ,getWorkerProfile);
 
 
-// 📌 Update availability status (online/offline)
-router.patch("/:uid/availability", updateAvailability);
-
-// 📌 Get worker profile by UID
-router.get("/:uid", getWorkerProfile);
-
-// 📌 Get average rating for a worker
-router.get("/:uid/rating", getWorkerRating);
-
-// 📌 Update worker profile
-router.put("/edit-profile/:uid",updateWorkerProfile);
+router.put("/edit-profile/:uid",verifyFirebaseToken,updateWorkerProfile);
 
 export default router;

@@ -49,7 +49,6 @@ export const getUser = async (req, res) => {
 };
 export const getDefaultWorkers = async (req, res) => {
   try {
-    // Fetch 10 random workers (you can customize the number or criteria)
     const workers = await Worker.aggregate([{ $sample: { size: 10 } }]);
 
     res.status(200).json({
@@ -66,7 +65,7 @@ export const getDefaultWorkers = async (req, res) => {
     });
   }
 };
-// Updated Backend API - getNearbyWorkers
+
 export const getNearbyWorkers = async (req, res) => {
   try {
     const {
@@ -74,10 +73,10 @@ export const getNearbyWorkers = async (req, res) => {
       categories = '',
       lat,
       lng,
-      radius = 50 // Default 50km radius
+      locationString = '', 
+      radius = 50 
     } = req.query;
 
-    // Parse coordinates if provided
     let latitude, longitude, maxDistance;
     let hasLocationFilter = false;
 
@@ -110,7 +109,7 @@ export const getNearbyWorkers = async (req, res) => {
     // Build search conditions array
     const searchConditions = [];
 
-    // 1. Category/Skill-based search (FIXED: using skillss array)
+    // 1. Category/Skill-based search (using skills array)
     if (categoryArray.length > 0) {
       searchConditions.push({
         skills: { 
@@ -119,7 +118,7 @@ export const getNearbyWorkers = async (req, res) => {
       });
     }
 
-    // 2. Text-based search (search in skills, bio, name)
+    // 2. Text-based search (search in skills, bio, name, address - ADDED address)
     if (search.trim()) {
       const searchTerm = search.trim().toLowerCase();
       searchConditions.push({
@@ -127,6 +126,7 @@ export const getNearbyWorkers = async (req, res) => {
           { skills: { $elemMatch: { $regex: searchTerm, $options: 'i' } } }, // Search in skills array
           { bio: { $regex: searchTerm, $options: 'i' } },
           { name: { $regex: searchTerm, $options: 'i' } },
+          { address: { $regex: searchTerm, $options: 'i' } }, // Added: search in address
         ],
       });
     }
@@ -138,39 +138,66 @@ export const getNearbyWorkers = async (req, res) => {
 
     console.log('Search Query:', JSON.stringify(query, null, 2));
 
-    let workers;
+    let workers = [];
 
     // Execute query with or without location filter
     if (hasLocationFilter) {
-      // Use geospatial query when location is provided
-      query.location = {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [longitude, latitude], // MongoDB uses [lng, lat] format
+      // Geospatial query for workers with valid location (coordinates != [0,0])
+      const geoQuery = {
+        ...query,
+        'location.coordinates': { $ne: [0, 0] },
+        location: {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [longitude, latitude], // MongoDB uses [lng, lat] format
+            },
+            $maxDistance: maxDistance, // Distance in meters
           },
-          $maxDistance: maxDistance, // Distance in meters
         },
       };
 
-      workers = await Worker.find(query)
+      const geoWorkers = await Worker.find(geoQuery)
         .select('-__v -password -refreshToken')
         .limit(50)
         .lean();
+
+      workers = geoWorkers;
+
+      // Fallback: If locationString provided, search workers without valid location but matching address
+      if (locationString.trim() && workers.length < 50) {
+        const fallbackQuery = {
+          ...query,
+          'location.coordinates': [0, 0],
+          address: { $regex: locationString.trim(), $options: 'i' },
+        };
+
+        const fallbackWorkers = await Worker.find(fallbackQuery)
+          .select('-__v -password -refreshToken')
+          .limit(50 - workers.length)
+          .lean();
+
+        workers = [...workers, ...fallbackWorkers];
+      }
     } else {
       // Regular query without location (just skills/category filtering)
+      // If locationString provided (but no coordinates), add address filter
+      if (locationString.trim()) {
+        query.address = { $regex: locationString.trim(), $options: 'i' };
+      }
+
       workers = await Worker.find(query)
         .select('-__v -password -refreshToken')
         .limit(50)
         .lean();
     }
 
-    // Calculate distances and add distance information
+    // Calculate distances and add distance information (only for valid locations)
     const workersWithDistance = workers.map(worker => {
       let workerData = { ...worker };
 
-      // If user location is provided, calculate distance
-      if (hasLocationFilter && worker.location && worker.location.coordinates) {
+      // If user location is provided and worker has valid location, calculate distance
+      if (hasLocationFilter && worker.location && worker.location.coordinates && (worker.location.coordinates[0] !== 0 || worker.location.coordinates[1] !== 0)) {
         const workerLat = worker.location.coordinates[1];
         const workerLng = worker.location.coordinates[0];
         
@@ -219,7 +246,8 @@ export const getNearbyWorkers = async (req, res) => {
         ...(hasLocationFilter && {
           location: { lat: latitude, lng: longitude },
           radius: radius + 'km'
-        })
+        }),
+        ...(locationString.trim() && { locationString: locationString.trim() })
       }
     };
 
@@ -263,6 +291,7 @@ export const getAllWorkers = async (req, res) => {
     const {
       search = '',
       categories = '',
+      locationString = '', // Added for consistency
       limit = 20,
       page = 1,
       sortBy = 'rating' // rating, distance, name, charge
@@ -292,7 +321,7 @@ export const getAllWorkers = async (req, res) => {
       });
     }
 
-    // Text search
+    // Text search (added address)
     if (search.trim()) {
       const searchTerm = search.trim().toLowerCase();
       searchConditions.push({
@@ -300,7 +329,15 @@ export const getAllWorkers = async (req, res) => {
           { skills: { $elemMatch: { $regex: searchTerm, $options: 'i' } } },
           { bio: { $regex: searchTerm, $options: 'i' } },
           { name: { $regex: searchTerm, $options: 'i' } },
+          { address: { $regex: searchTerm, $options: 'i' } }, // Added
         ],
+      });
+    }
+
+    // If locationString provided, add address filter
+    if (locationString.trim()) {
+      searchConditions.push({
+        address: { $regex: locationString.trim(), $options: 'i' }
       });
     }
 
@@ -343,7 +380,8 @@ export const getAllWorkers = async (req, res) => {
       searchParams: {
         search: search.trim(),
         categories: categoryArray,
-        sortBy
+        sortBy,
+        ...(locationString.trim() && { locationString: locationString.trim() })
       }
     });
 
@@ -357,13 +395,12 @@ export const getAllWorkers = async (req, res) => {
 };
 
 
-
 export const updateUserProfile = async (req, res) => {
   try {
     const { uid } = req.params;
     const { name, email, phone, address, profilePic } = req.body;
 
-    // Step 1: Update Firebase Auth email (only if changed)
+
     if (email) {
       try {
         await admin.auth().updateUser(uid, { email });
@@ -376,7 +413,7 @@ export const updateUserProfile = async (req, res) => {
       }
     }
 
-    // Step 2: Prepare update object for MongoDB
+
     const updateData = {};
     if (name !== undefined) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone;
@@ -394,7 +431,6 @@ export const updateUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Step 4: Send updated profile
     return res.status(200).json({
       message: "Profile updated successfully",
       user,

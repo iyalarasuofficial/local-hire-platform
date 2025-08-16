@@ -22,7 +22,11 @@ const workerSchema = new mongoose.Schema({
     type: { type: String, enum: ['Point'], default: 'Point' },
     coordinates: { type: [Number], default: [0, 0] },
   },
-  address: { type: String },
+ address: { 
+  type: String, 
+  lowercase: true,  // <- this will automatically convert to lowercase
+  trim: true        // optional: removes extra spaces
+},
   averageRating: { type: Number, default: 0 },
   totalRatings: { type: Number, default: 0 },
 }, { timestamps: true });

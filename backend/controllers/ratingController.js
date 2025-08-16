@@ -2,7 +2,7 @@ import Rating from "../models/Rating.js";
 import Worker from '../models/Worker.js';
 import mongoose from 'mongoose';
 
-// Helper to update worker's average rating and total ratings
+
 const updateWorkerRatingStats = async (workerId) => {
   try {
     const stats = await Rating.aggregate([
@@ -17,16 +17,16 @@ const updateWorkerRatingStats = async (workerId) => {
     ]);
 
     if (stats.length > 0) {
-      // FIXED: Use uid field instead of _id, and round averageRating
+
       await Worker.findOneAndUpdate(
-        { uid: workerId }, // Find by uid field
+        { uid: workerId }, 
         {
           averageRating: Math.round(stats[0].averageRating * 100) / 100, // Round to 2 decimal places
           totalRatings: stats[0].totalRatings
         }
       );
     } else {
-      // Reset ratings if no ratings found
+ 
       await Worker.findOneAndUpdate(
         { uid: workerId },
         {
@@ -42,7 +42,7 @@ const updateWorkerRatingStats = async (workerId) => {
 };
 
 
-// Controller to add rating
+
 export const addRating = async (req, res) => {
   try {
     const { bookingId, userId, workerId, rating, feedback } = req.body;
@@ -72,14 +72,14 @@ export const getUserReviews = async (req, res) => {
 
     const reviews = await Rating.find({ workerId })
       .populate({
-        path: 'userId', // The field in Rating schema
-        model: 'User', // The model to populate from
-        localField: 'userId', // Rating.userId (String uid)
-        foreignField: 'uid',  // User.uid (String)
+        path: 'userId', 
+        model: 'User', 
+        localField: 'userId', 
+        foreignField: 'uid',  
         justOne: true,
         select: 'name profilePic'
       })
-      .sort({ createdAt: -1 }); // Moved `.sort()` before `;`
+      .sort({ createdAt: -1 });
 
     res.status(200).json(reviews);
 
